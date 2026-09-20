@@ -4,7 +4,7 @@ import { route, ok } from "@/lib/api";
 import { getSettings } from "@/lib/settings";
 import { OCCUPYING } from "@/lib/booking";
 import { minutesFromMidnight, toManilaDateISO } from "@/lib/time";
-import { resolveRange, csv } from "../sales/route";
+import { resolveRange, csv } from "@/lib/reports";
 
 export const dynamic = "force-dynamic";
 
