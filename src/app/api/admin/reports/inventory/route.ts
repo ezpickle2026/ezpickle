@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/guard";
 import { route, ok } from "@/lib/api";
-import { resolveRange, csv } from "../sales/route";
+import { resolveRange, csv } from "@/lib/reports";
 
 export const dynamic = "force-dynamic";
 
