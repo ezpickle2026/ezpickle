@@ -481,3 +481,4 @@ Standard Next.js standalone build. You need Node 20+, a reachable PostgreSQL, an
 ---
 
 Built for EzPickle. Play easy, play more.
+deploy
