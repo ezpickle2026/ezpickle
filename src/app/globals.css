@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ezp-green: #6fcf2b;
+  --ezp-green-soft: rgba(111, 207, 43, 0.14);
+  --ezp-ink: #0a0a0a;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--ezp-ink);
+  color: #fff;
+  font-feature-settings: "cv11", "ss01";
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--ezp-green);
+  color: #0a0a0a;
+}
+
+/* Focus ring is never removed — only restyled. */
+:focus-visible {
+  outline: 2px solid var(--ezp-green);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.ezp-grid-lines {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 72px 72px;
+}
+
+.ezp-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: #1a1a1a;
+}
+.ezp-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+  animation: ezp-shimmer 1.6s infinite;
+}
+@keyframes ezp-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Honour the OS setting. Accessibility beats aesthetics, always. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .ezp-parallax,
+  .ezp-particles {
+    display: none !important;
+  }
+}
+
+/* Thin, dark scrollbars inside admin tables. */
+.ezp-scroll::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+.ezp-scroll::-webkit-scrollbar-thumb {
+  background: #2a2a2a;
+  border-radius: 99px;
+}
