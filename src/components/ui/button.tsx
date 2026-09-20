@@ -43,7 +43,7 @@ export function Button({
         className,
       )}
       disabled={disabled || loading}
-      {...(props as never)}
+      {...(props as React.ComponentPropsWithoutRef<typeof motion.button>)}
     >
       {loading && <Loader2 size={16} className="animate-spin" aria-hidden />}
       {children}
