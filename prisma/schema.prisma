@@ -1,0 +1,639 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------- identity
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  STAFF
+  CUSTOMER
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  fullName     String
+  mobile       String?
+  role         Role       @default(CUSTOMER)
+  status       UserStatus @default(ACTIVE)
+  avatarUrl    String?
+  emergencyContact String?
+  notes        String?
+  lastLoginAt  DateTime?
+  deletedAt    DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  sessions          Session[]
+  bookings          Booking[]          @relation("BookingCustomer")
+  createdBookings   Booking[]          @relation("BookingCreatedBy")
+  checkedInBookings Booking[]          @relation("BookingCheckedInBy")
+  openPlayPlayers   OpenPlayPlayer[]
+  waitlistEntries   Waitlist[]
+  sales             Sale[]             @relation("SaleCustomer")
+  staffSales        Sale[]             @relation("SaleStaff")
+  inventoryTx       InventoryTransaction[]
+  auditLogs         AuditLog[]
+  notifications     Notification[]
+
+  @@index([role, status])
+  @@index([email])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  userAgent String?
+  ip        String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ---------------------------------------------------------------- courts
+
+enum CourtStatus {
+  AVAILABLE
+  MAINTENANCE
+  CLOSED
+}
+
+enum SurfaceType {
+  ACRYLIC
+  CONCRETE
+  CUSHIONED
+  WOOD
+  SYNTHETIC
+}
+
+model Court {
+  id           String      @id @default(cuid())
+  name         String
+  number       Int         @unique
+  description  String?
+  indoor       Boolean     @default(true)
+  surface      SurfaceType @default(ACRYLIC)
+  status       CourtStatus @default(AVAILABLE)
+  hourlyPrice  Int // centavos, fallback when no pricing rule matches
+  amenities    String[]    @default([])
+  active       Boolean     @default(true)
+  bookable     Boolean     @default(true)
+  deletedAt    DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  images       CourtImage[]
+  blocks       CourtBlock[]
+  bookings     Booking[]
+  pricingRules PricingRule[]
+  openPlayGroups OpenPlayGroup[]
+
+  @@index([active, bookable])
+}
+
+model CourtImage {
+  id        String   @id @default(cuid())
+  courtId   String
+  url       String
+  title     String?
+  caption   String?
+  sortOrder Int      @default(0)
+  featured  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  court Court @relation(fields: [courtId], references: [id], onDelete: Cascade)
+
+  @@index([courtId, sortOrder])
+}
+
+model FacilityImage {
+  id        String   @id @default(cuid())
+  url       String
+  title     String?
+  caption   String?
+  sortOrder Int      @default(0)
+  featured  Boolean  @default(false)
+  active    Boolean  @default(true)
+  courtId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active, sortOrder])
+}
+
+enum BlockReason {
+  MAINTENANCE
+  PRIVATE_EVENT
+  OPEN_PLAY
+  CLOSED
+  OTHER
+}
+
+model CourtBlock {
+  id        String      @id @default(cuid())
+  courtId   String
+  startAt   DateTime
+  endAt     DateTime
+  reason    BlockReason @default(MAINTENANCE)
+  note      String?
+  createdAt DateTime    @default(now())
+
+  court Court @relation(fields: [courtId], references: [id], onDelete: Cascade)
+
+  @@index([courtId, startAt, endAt])
+}
+
+// ---------------------------------------------------------------- bookings
+
+enum BookingStatus {
+  PENDING
+  PAYMENT_PENDING
+  CONFIRMED
+  CHECKED_IN
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+  REFUNDED
+  EXPIRED
+}
+
+enum BookingSource {
+  ONLINE
+  WALK_IN
+  ADMIN
+  OPEN_PLAY
+}
+
+model Booking {
+  id             String        @id @default(cuid())
+  reference      String        @unique // EZP-XXXXXX
+  courtId        String
+  customerId     String
+  createdById    String?
+  startAt        DateTime
+  endAt          DateTime
+  durationMins   Int
+  subtotal       Int // centavos
+  discount       Int           @default(0)
+  total          Int
+  status         BookingStatus @default(PAYMENT_PENDING)
+  source         BookingSource @default(ONLINE)
+  holdExpiresAt  DateTime?
+  promoCodeId    String?
+  notes          String?
+  cancelledAt    DateTime?
+  cancelReason   String?
+  checkedInAt    DateTime?
+  checkedInById  String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  court       Court      @relation(fields: [courtId], references: [id])
+  customer    User       @relation("BookingCustomer", fields: [customerId], references: [id])
+  createdBy   User?      @relation("BookingCreatedBy", fields: [createdById], references: [id])
+  checkedInBy User?      @relation("BookingCheckedInBy", fields: [checkedInById], references: [id])
+  promoCode   PromoCode? @relation(fields: [promoCodeId], references: [id])
+  payments    Payment[]
+  sale        Sale?
+
+  @@index([courtId, startAt, endAt])
+  @@index([customerId, startAt])
+  @@index([status, holdExpiresAt])
+  @@index([startAt])
+}
+
+// ---------------------------------------------------------------- payments
+
+enum PaymentStatus {
+  AWAITING
+  PAID
+  FAILED
+  EXPIRED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentPurpose {
+  COURT_BOOKING
+  OPEN_PLAY
+  PRODUCT
+  RENTAL
+  OTHER
+}
+
+model Payment {
+  id                String         @id @default(cuid())
+  purpose           PaymentPurpose @default(COURT_BOOKING)
+  bookingId         String?
+  openPlayPlayerId  String?        @unique
+  amount            Int
+  currency          String         @default("PHP")
+  status            PaymentStatus  @default(AWAITING)
+  provider          String         @default("paymongo")
+  checkoutSessionId String?        @unique
+  checkoutUrl       String?
+  paymentIntentId   String?
+  paymentId         String? // pay_xxx
+  method            String?
+  referenceNumber   String         @unique
+  feeAmount         Int?
+  netAmount         Int?
+  paidAt            DateTime?
+  failureReason     String?
+  refundedAmount    Int            @default(0)
+  rawPayload        Json?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  booking        Booking?        @relation(fields: [bookingId], references: [id])
+  openPlayPlayer OpenPlayPlayer? @relation(fields: [openPlayPlayerId], references: [id])
+
+  @@index([status, createdAt])
+  @@index([bookingId])
+}
+
+model WebhookEvent {
+  id          String   @id @default(cuid())
+  provider    String   @default("paymongo")
+  eventId     String
+  type        String
+  livemode    Boolean  @default(false)
+  payload     Json
+  processedAt DateTime?
+  error       String?
+  receivedAt  DateTime @default(now())
+
+  @@unique([provider, eventId])
+  @@index([type, receivedAt])
+}
+
+// ---------------------------------------------------------------- open play
+
+enum SkillLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  OPEN
+}
+
+enum OpenPlayStatus {
+  DRAFT
+  OPEN
+  FULL
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model OpenPlaySession {
+  id            String         @id @default(cuid())
+  title         String
+  date          DateTime // date at 00:00 Asia/Manila stored as UTC instant
+  startAt       DateTime
+  endAt         DateTime
+  skillLevel    SkillLevel     @default(OPEN)
+  pricePerPlayer Int
+  courtCount    Int            @default(1)
+  playersPerCourt Int          @default(4)
+  minPlayers    Int            @default(4)
+  maxPlayers    Int
+  status        OpenPlayStatus @default(OPEN)
+  rotationMins  Int            @default(15)
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  players  OpenPlayPlayer[]
+  groups   OpenPlayGroup[]
+  waitlist Waitlist[]
+
+  @@index([startAt, status])
+}
+
+enum PlayerStatus {
+  PENDING_PAYMENT
+  REGISTERED
+  CHECKED_IN
+  CANCELLED
+  NO_SHOW
+  EXPIRED
+}
+
+model OpenPlayPlayer {
+  id            String       @id @default(cuid())
+  sessionId     String
+  userId        String
+  skillRating   Float        @default(3.0) // DUPR-like 2.0 - 6.0
+  preferredSide String?
+  status        PlayerStatus @default(PENDING_PAYMENT)
+  holdExpiresAt DateTime?
+  joinedAt      DateTime     @default(now())
+  checkedInAt   DateTime?
+  cancelledAt   DateTime?
+  groupId       String?
+
+  session OpenPlaySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User            @relation(fields: [userId], references: [id])
+  group   OpenPlayGroup?  @relation(fields: [groupId], references: [id])
+  payment Payment?
+
+  @@unique([sessionId, userId])
+  @@index([sessionId, status])
+}
+
+model OpenPlayGroup {
+  id         String   @id @default(cuid())
+  sessionId  String
+  courtId    String?
+  label      String // "Court 1"
+  roundIndex Int      @default(1)
+  avgRating  Float?
+  manual     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  session OpenPlaySession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  court   Court?           @relation(fields: [courtId], references: [id])
+  players OpenPlayPlayer[]
+
+  @@index([sessionId, roundIndex])
+}
+
+model PlayerPairHistory {
+  id        String   @id @default(cuid())
+  playerAId String
+  playerBId String
+  times     Int      @default(1)
+  lastAt    DateTime @default(now())
+
+  @@unique([playerAId, playerBId])
+}
+
+enum WaitlistStatus {
+  WAITING
+  OFFERED
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+}
+
+model Waitlist {
+  id             String         @id @default(cuid())
+  sessionId      String
+  userId         String
+  position       Int
+  status         WaitlistStatus @default(WAITING)
+  offeredAt      DateTime?
+  offerExpiresAt DateTime?
+  createdAt      DateTime       @default(now())
+
+  session OpenPlaySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User            @relation(fields: [userId], references: [id])
+
+  @@unique([sessionId, userId])
+  @@index([sessionId, status, position])
+}
+
+// ---------------------------------------------------------------- inventory & sales
+
+model Product {
+  id           String   @id @default(cuid())
+  name         String
+  sku          String   @unique
+  category     String
+  description  String?
+  cost         Int      @default(0)
+  price        Int
+  stock        Int      @default(0)
+  minStock     Int      @default(0)
+  supplier     String?
+  imageUrl     String?
+  rentable     Boolean  @default(false)
+  active       Boolean  @default(true)
+  deletedAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  transactions InventoryTransaction[]
+  saleItems    SaleItem[]
+
+  @@index([active, category])
+}
+
+enum StockMovement {
+  PURCHASE
+  SALE
+  DAMAGED
+  ADJUSTMENT
+  RETURN
+  RENTAL_OUT
+  RENTAL_IN
+}
+
+model InventoryTransaction {
+  id         String        @id @default(cuid())
+  productId  String
+  type       StockMovement
+  quantity   Int // signed: +in / -out
+  unitCost   Int?
+  balance    Int
+  note       String?
+  userId     String?
+  saleId     String?
+  createdAt  DateTime      @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id])
+
+  @@index([productId, createdAt])
+}
+
+enum SaleChannel {
+  COURT_BOOKING
+  OPEN_PLAY
+  PRODUCT
+  RENTAL
+  OTHER
+}
+
+enum SaleStatus {
+  PAID
+  VOID
+  REFUNDED
+}
+
+model Sale {
+  id            String      @id @default(cuid())
+  reference     String      @unique
+  channel       SaleChannel
+  customerId    String?
+  staffId       String?
+  bookingId     String?     @unique
+  subtotal      Int
+  discount      Int         @default(0)
+  total         Int
+  paymentMethod String      @default("paymongo")
+  status        SaleStatus  @default(PAID)
+  soldAt        DateTime    @default(now())
+  createdAt     DateTime    @default(now())
+
+  customer User?      @relation("SaleCustomer", fields: [customerId], references: [id])
+  staff    User?      @relation("SaleStaff", fields: [staffId], references: [id])
+  booking  Booking?   @relation(fields: [bookingId], references: [id])
+  items    SaleItem[]
+
+  @@index([soldAt])
+  @@index([channel, soldAt])
+}
+
+model SaleItem {
+  id          String  @id @default(cuid())
+  saleId      String
+  productId   String?
+  description String
+  quantity    Int     @default(1)
+  unitPrice   Int
+  total       Int
+
+  sale    Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@index([saleId])
+}
+
+// ---------------------------------------------------------------- pricing & promos
+
+enum PricingScope {
+  COURT_HOURLY
+  OPEN_PLAY
+  RENTAL
+}
+
+model PricingRule {
+  id         String       @id @default(cuid())
+  name       String
+  scope      PricingScope @default(COURT_HOURLY)
+  courtId    String?
+  daysOfWeek Int[]        @default([]) // 0=Sun .. 6=Sat, empty = all days
+  startMin   Int          @default(0) // minutes from midnight (Asia/Manila)
+  endMin     Int          @default(1440)
+  dateFrom   DateTime?
+  dateTo     DateTime?
+  pricePerHour Int
+  priority   Int          @default(0) // higher wins
+  active     Boolean      @default(true)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  court Court? @relation(fields: [courtId], references: [id], onDelete: Cascade)
+
+  @@index([active, priority])
+}
+
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
+model PromoCode {
+  id            String       @id @default(cuid())
+  code          String       @unique
+  description   String?
+  discountType  DiscountType
+  value         Int // percent (0-100) or centavos
+  startsAt      DateTime?
+  endsAt        DateTime?
+  usageLimit    Int?
+  usageCount    Int          @default(0)
+  perUserLimit  Int?
+  minPurchase   Int          @default(0)
+  courtIds      String[]     @default([])
+  active        Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  bookings Booking[]
+}
+
+// ---------------------------------------------------------------- ops
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  IN_APP
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+model Notification {
+  id        String              @id @default(cuid())
+  userId    String?
+  channel   NotificationChannel @default(EMAIL)
+  template  String
+  to        String
+  subject   String
+  payload   Json
+  status    NotificationStatus  @default(QUEUED)
+  error     String?
+  sentAt    DateTime?
+  createdAt DateTime            @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([status, createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  actorEmail String?
+  action     String
+  entity     String
+  entityId   String?
+  before     Json?
+  after      Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+model RateLimitHit {
+  id        String   @id @default(cuid())
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
+}
