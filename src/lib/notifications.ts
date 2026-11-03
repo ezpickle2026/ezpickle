@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "./prisma";
 import { env } from "./env";
+import nodemailer, { type Transporter } from "nodemailer";
 import { getSettings } from "./settings";
 import { formatManila } from "./time";
 import { peso } from "./utils";
@@ -58,24 +59,19 @@ export async function notify(params: {
     },
   });
 
-  if (!env.RESEND_API_KEY) return record; // queued; no provider configured
+  const message = {
+    to: params.to,
+    subject,
+    html: params.html ?? renderTemplate(params.template, params.payload),
+    text: params.text,
+  };
+
+  const provider = env.GMAIL_APP_PASSWORD ? "gmail" : env.RESEND_API_KEY ? "resend" : null;
+  if (!provider) return record; // queued; no provider configured
 
   try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: env.MAIL_FROM,
-        to: params.to,
-        subject,
-        html: params.html ?? renderTemplate(params.template, params.payload),
-        ...(params.text ? { text: params.text } : {}),
-      }),
-    });
-    if (!res.ok) throw new Error(`mail provider responded ${res.status}`);
+    if (provider === "gmail") await sendWithGmail(message);
+    else await sendWithResend(message);
 
     return prisma.notification.update({
       where: { id: record.id },
@@ -88,6 +84,44 @@ export async function notify(params: {
       data: { status: "FAILED", error: String(error).slice(0, 500) },
     });
   }
+}
+
+type OutgoingEmail = { to: string; subject: string; html: string; text?: string };
+
+let gmail: Transporter | null = null;
+
+/** Sends through Gmail's SMTP server as GMAIL_USER, using a Google App Password. */
+async function sendWithGmail(message: OutgoingEmail) {
+  gmail ??= nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    auth: { user: env.GMAIL_USER, pass: env.GMAIL_APP_PASSWORD },
+  });
+  await gmail.sendMail({
+    // Gmail rewrites any other sender address to the account's own, so the
+    // address is always GMAIL_USER; only the display name is configurable.
+    from: { name: senderName(env.MAIL_FROM), address: env.GMAIL_USER },
+    ...message,
+  });
+}
+
+async function sendWithResend(message: OutgoingEmail) {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ from: env.MAIL_FROM, ...message }),
+  });
+  if (!res.ok) throw new Error(`mail provider responded ${res.status}`);
+}
+
+/** "EzPickle <x@y.com>" -> "EzPickle" */
+function senderName(from: string) {
+  const name = from.replace(/<[^>]*>/, "").replace(/"/g, "").trim();
+  return name && !name.includes("@") ? name : "EzPickle";
 }
 
 /**

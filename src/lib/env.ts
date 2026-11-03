@@ -21,8 +21,16 @@ const schema = z.object({
     .transform((v) => v === "true"),
   PAYMONGO_PAYMENT_METHODS: z.string().default("card,gcash,paymaya,grab_pay,qrph"),
   CRON_SECRET: z.string().default(""),
+  // Gmail sending: the Gmail address and a Google "App Password" for it
+  // (not the normal Gmail password). Takes priority over Resend when set.
+  GMAIL_USER: z.string().trim().default("ezpickle2026@gmail.com"),
+  // Google shows App Passwords with spaces ("abcd efgh ijkl mnop"); strip them.
+  GMAIL_APP_PASSWORD: z
+    .string()
+    .default("")
+    .transform((v) => v.replace(/\s+/g, "")),
   RESEND_API_KEY: z.string().default(""),
-  MAIL_FROM: z.string().default("EzPickle <bookings@ezpickle.ph>"),
+  MAIL_FROM: z.string().default("EzPickle <ezpickle2026@gmail.com>"),
   SEED_ENABLED: z.string().default("false"),
   SEED_PASSWORD: z.string().default(""),
 });
