@@ -6,6 +6,8 @@
   --ezp-green: #6fcf2b;
   --ezp-green-soft: rgba(111, 207, 43, 0.14);
   --ezp-ink: #0a0a0a;
+  /* Referenced by tailwind's font-sans; must be defined or the stack is dropped. */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 html {
