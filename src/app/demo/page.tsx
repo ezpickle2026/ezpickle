@@ -24,7 +24,7 @@ import { Logo } from "@/components/logo";
  *
  * Change CONTACT_EMAIL to the inbox that should receive demo requests.
  */
-const CONTACT_EMAIL = "hello@ezpickle.ph";
+const CONTACT_EMAIL = "ezpickle2026@gmail.com";
 const DEMO_MAILTO = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
   "EzPickle demo request",
 )}&body=${encodeURIComponent(
