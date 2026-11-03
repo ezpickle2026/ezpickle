@@ -19,7 +19,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "holds:release": "tsx scripts/release-holds.ts",
-    "db:release": "prisma db push && tsx scripts/apply-constraints.ts && tsx scripts/create-admin.ts",
+    "db:release": "node scripts/check-env.mjs && prisma db push && tsx scripts/apply-constraints.ts && tsx scripts/create-admin.ts",
     "admin:create": "tsx scripts/create-admin.ts"
   },
   "prisma": {
