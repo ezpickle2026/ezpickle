@@ -20,7 +20,21 @@ const schema = z.object({
   SEED_PASSWORD: z.string().default(""),
 });
 
-const parsed = schema.safeParse(process.env);
+// `next build` imports every route to collect page data. Railway (and most
+// hosts) may not expose runtime secrets like DATABASE_URL / SESSION_SECRET to
+// the build step, so during the build we fall back to placeholders instead of
+// crashing. At runtime (`next start`) validation is still strict.
+const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
+
+const parsed = schema.safeParse(
+  isBuildPhase
+    ? {
+        DATABASE_URL: "postgresql://build:build@localhost:5432/build",
+        SESSION_SECRET: "build-time-placeholder-secret-not-used-at-runtime",
+        ...process.env,
+      }
+    : process.env,
+);
 
 if (!parsed.success) {
   // Fail fast and loudly at boot rather than mysteriously at request time.
