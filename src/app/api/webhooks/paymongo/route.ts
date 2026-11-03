@@ -96,3 +96,16 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ received: true }, { status: 200 });
 }
+
+/**
+ * Browser-friendly check: opening this URL confirms it is the right address to
+ * register with PayMongo and whether the webhook secret is set. Reveals no secrets.
+ */
+export function GET() {
+  return NextResponse.json({
+    ok: true,
+    message: "PayMongo webhook endpoint is reachable. Register this exact URL in PayMongo.",
+    webhookSecretConfigured: Boolean(env.PAYMONGO_WEBHOOK_SECRET),
+    livemode: env.PAYMONGO_LIVEMODE,
+  });
+}
