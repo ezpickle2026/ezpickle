@@ -75,7 +75,9 @@ async function call<T>(
     // Log the provider detail; show the customer nothing technical.
     console.error("[paymongo] request failed", { path, status: res.status, body: text.slice(0, 800) });
     throw new AppError(
-      "Payment could not be started. Please try again in a moment.",
+      init.method === "GET"
+        ? "Could not check the payment status with PayMongo right now."
+        : "Payment could not be started. Please try again in a moment.",
       502,
       "payment_provider_error",
     );
@@ -135,13 +137,21 @@ export async function createCheckoutSession(params: {
   };
 }
 
+// Only *creating* a session lives under /v2. Retrieving and expiring a session
+// (including one created via /v2) are /v1 routes; GET /v2/checkout_sessions/:id
+// answers 404 "The requested route does not exist". /v2 is kept as a fallback
+// in case PayMongo adds those routes later.
 export async function retrieveCheckoutSession(id: string) {
-  return call<CheckoutSessionResponse>(`/v2/checkout_sessions/${id}`, { method: "GET" });
+  try {
+    return await call<CheckoutSessionResponse>(`/v1/checkout_sessions/${id}`, { method: "GET" });
+  } catch {
+    return call<CheckoutSessionResponse>(`/v2/checkout_sessions/${id}`, { method: "GET" });
+  }
 }
 
 export async function expireCheckoutSession(id: string) {
   try {
-    await call(`/v2/checkout_sessions/${id}/expire`, { method: "POST" });
+    await call(`/v1/checkout_sessions/${id}/expire`, { method: "POST" });
   } catch (error) {
     // Expiry is best-effort housekeeping; a stale session is harmless because
     // we only ever credit a booking from a verified webhook.
