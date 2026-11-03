@@ -100,7 +100,19 @@ Seeded accounts (password `EzPickle!2026`, or whatever you set as `SEED_PASSWORD
 | `PAYMONGO_PAYMENT_METHODS` | — | Comma separated. Must be enabled on your PayMongo account. |
 | `CRON_SECRET` | recommended | Bearer token for `/api/cron/release-holds`. |
 | `RESEND_API_KEY` | optional | Without it, notifications are stored in the DB but not emailed. |
-| `MAIL_FROM` | optional | Sender identity for emails. |
+| `MAIL_FROM` | optional | Sender identity for emails, e.g. `EzPickle <bookings@yourdomain.com>`. The domain must be verified in Resend. |
+
+### Booking confirmation emails
+
+When a customer's court booking is paid (PayMongo webhook, the payment check when they return from checkout, or staff creating a walk-in marked as paid), they get a "Booking confirmed" email. It includes the reference, court, date, time, amount paid, payment method and a button linking to their booking page with the check-in QR code. Each payment sends exactly one confirmation, even if the webhook and the return-from-checkout check run at the same time.
+
+To turn it on:
+
+1. Create a [Resend](https://resend.com) account and verify your sending domain.
+2. Set `RESEND_API_KEY` and `MAIL_FROM` (an address on that domain).
+3. Set `APP_URL` to your public site URL so the link in the email works.
+
+Every email is also saved in the `Notification` table with status `SENT`, `FAILED` or `QUEUED` (no key configured). Check it there if a customer says they didn't get one.
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_BUCKET` | optional | Direct media upload. Without them, the media manager takes hosted URLs. |
 | `SEED_ENABLED` | dev only | Must be `true` to seed when `NODE_ENV=production`. |
 | `SEED_PASSWORD` | dev only | Password for every seeded account. |

@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
-import { notify } from "@/lib/notifications";
+import { notify, sendBookingConfirmation } from "@/lib/notifications";
 import { publish } from "@/lib/realtime";
 import { promoteWaitlist } from "@/lib/openplay";
 import { reference as makeReference } from "@/lib/reference";
@@ -82,9 +82,12 @@ export async function fulfil(envelope: WebhookEnvelope) {
   }
   if (payment.status === "PAID") return; // already credited
 
-  await prisma.$transaction(async (tx) => {
-    await tx.payment.update({
-      where: { id: payment.id },
+  // The webhook and the reconcile safety net can race on the same payment.
+  // Only the caller that actually flips it to PAID goes on to credit the
+  // booking and email the customer, so nobody gets two confirmations.
+  const credited = await prisma.$transaction(async (tx) => {
+    const claimed = await tx.payment.updateMany({
+      where: { id: payment.id, status: { not: "PAID" } },
       data: {
         status: "PAID",
         paidAt: new Date(),
@@ -96,6 +99,7 @@ export async function fulfil(envelope: WebhookEnvelope) {
         rawPayload: envelope as never,
       },
     });
+    if (claimed.count === 0) return false;
 
     if (payment.bookingId) {
       const booking = await tx.booking.update({
@@ -160,28 +164,19 @@ export async function fulfil(envelope: WebhookEnvelope) {
         },
       });
     }
+    return true;
   });
+  if (!credited) return;
 
   // Notifications and realtime happen after the transaction commits so a slow
   // mail provider can never hold a database lock open.
   if (payment.bookingId) {
-    const booking = await prisma.booking.findUnique({
-      where: { id: payment.bookingId },
-      include: { court: true, customer: true },
+    await sendBookingConfirmation(payment.bookingId, {
+      method: info.method,
+      referenceNumber: payment.referenceNumber,
     });
+    const booking = await prisma.booking.findUnique({ where: { id: payment.bookingId } });
     if (booking) {
-      await notify({
-        userId: booking.customerId,
-        to: booking.customer.email,
-        template: "booking_confirmed",
-        payload: {
-          reference: booking.reference,
-          court: booking.court.name,
-          when: formatManila(booking.startAt),
-          amountPaid: peso(booking.total),
-          paymentReference: payment.referenceNumber,
-        },
-      });
       await publish("availability", {
         type: "slot_changed",
         courtId: booking.courtId,

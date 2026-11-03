@@ -11,6 +11,7 @@ import { hashPassword } from "@/lib/password";
 import { reference as makeReference } from "@/lib/reference";
 import { randomBytes } from "node:crypto";
 import { reconcileRecentPayments } from "@/lib/payment-fulfilment";
+import { sendBookingConfirmation } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -117,6 +118,7 @@ export const POST = route(async (request: Request) => {
   });
 
   if (input.markPaid) {
+    const manualReference = makeReference("MAN", 8);
     await prisma.$transaction([
       prisma.payment.create({
         data: {
@@ -126,7 +128,7 @@ export const POST = route(async (request: Request) => {
           status: "PAID",
           provider: input.paymentMethod,
           method: input.paymentMethod,
-          referenceNumber: makeReference("MAN", 8),
+          referenceNumber: manualReference,
           paidAt: new Date(),
         },
       }),
@@ -152,6 +154,12 @@ export const POST = route(async (request: Request) => {
         },
       }),
     ]);
+
+    // Paid at the counter: the customer still gets their confirmation email.
+    await sendBookingConfirmation(booking.id, {
+      method: input.paymentMethod,
+      referenceNumber: manualReference,
+    });
   }
 
   await audit({

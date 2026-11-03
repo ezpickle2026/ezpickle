@@ -1,6 +1,15 @@
 import "server-only";
 import { prisma } from "./prisma";
 import { env } from "./env";
+import { getSettings } from "./settings";
+import { formatManila } from "./time";
+import { peso } from "./utils";
+import {
+  bookingConfirmationSubject,
+  renderBookingConfirmationHtml,
+  renderBookingConfirmationText,
+  type BookingConfirmationEmail,
+} from "./email-booking-confirmation";
 
 export type TemplateKey =
   | "booking_created"
@@ -32,14 +41,19 @@ export async function notify(params: {
   to: string;
   template: TemplateKey;
   payload: Record<string, unknown>;
+  /** Optional pre-rendered email; falls back to the generic template. */
+  subject?: string;
+  html?: string;
+  text?: string;
 }) {
+  const subject = params.subject ?? SUBJECTS[params.template];
   const record = await prisma.notification.create({
     data: {
       userId: params.userId ?? null,
       channel: "EMAIL",
       template: params.template,
       to: params.to,
-      subject: SUBJECTS[params.template],
+      subject,
       payload: params.payload as never,
     },
   });
@@ -56,8 +70,9 @@ export async function notify(params: {
       body: JSON.stringify({
         from: env.MAIL_FROM,
         to: params.to,
-        subject: SUBJECTS[params.template],
-        html: renderTemplate(params.template, params.payload),
+        subject,
+        html: params.html ?? renderTemplate(params.template, params.payload),
+        ...(params.text ? { text: params.text } : {}),
       }),
     });
     if (!res.ok) throw new Error(`mail provider responded ${res.status}`);
@@ -72,6 +87,64 @@ export async function notify(params: {
       where: { id: record.id },
       data: { status: "FAILED", error: String(error).slice(0, 500) },
     });
+  }
+}
+
+/**
+ * Emails the customer their booking confirmation once the booking is paid.
+ * Never throws: a mail problem must not undo or fail a successful payment.
+ */
+export async function sendBookingConfirmation(
+  bookingId: string,
+  payment?: { method?: string | null; referenceNumber?: string | null },
+) {
+  try {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { court: true, customer: { select: { fullName: true, email: true } } },
+    });
+    if (!booking || booking.status !== "CONFIRMED") return null;
+
+    const settings = await getSettings();
+    const hours = booking.durationMins / 60;
+    const email: BookingConfirmationEmail = {
+      customerName: booking.customer.fullName,
+      reference: booking.reference,
+      courtName: booking.court.name,
+      dateLabel: formatManila(booking.startAt, "EEEE, MMMM d, yyyy"),
+      timeLabel: `${formatManila(booking.startAt, "h:mm a")} – ${formatManila(booking.endAt, "h:mm a")}`,
+      durationLabel: Number.isInteger(hours)
+        ? `${hours} hour${hours === 1 ? "" : "s"}`
+        : `${booking.durationMins} minutes`,
+      amountPaid: peso(booking.total),
+      paymentMethod: payment?.method ?? null,
+      paymentReference: payment?.referenceNumber ?? null,
+      bookingUrl: `${env.APP_URL}/booking/${booking.reference}/confirmation`,
+      businessName: settings.businessName,
+      businessAddress: settings.address,
+      businessPhone: settings.phone,
+      businessEmail: settings.email,
+      cancellationPolicy: settings.cancellationPolicy,
+    };
+
+    return await notify({
+      userId: booking.customerId,
+      to: booking.customer.email,
+      template: "booking_confirmed",
+      subject: bookingConfirmationSubject(email),
+      html: renderBookingConfirmationHtml(email),
+      text: renderBookingConfirmationText(email),
+      payload: {
+        reference: booking.reference,
+        court: booking.court.name,
+        when: formatManila(booking.startAt),
+        amountPaid: email.amountPaid,
+        paymentReference: email.paymentReference,
+      },
+    });
+  } catch (error) {
+    console.error("[notify] booking confirmation failed", bookingId, error);
+    return null;
   }
 }
 
