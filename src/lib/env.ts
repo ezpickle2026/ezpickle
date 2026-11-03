@@ -2,7 +2,14 @@ import { z } from "zod";
 
 const schema = z.object({
   DATABASE_URL: z.string().min(1),
-  APP_URL: z.string().url().default("http://localhost:3000"),
+  // Accept "example.com" as well as "https://example.com/" — a missing scheme
+  // is the most common mistake when pasting a Railway domain into Variables.
+  APP_URL: z.preprocess((v) => {
+    if (typeof v !== "string" || v.trim() === "") return undefined;
+    let url = v.trim().replace(/^["']|["']$/g, "").replace(/\/+$/, "");
+    if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+    return url;
+  }, z.string().url().default("http://localhost:3000")),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   SESSION_SECRET: z.string().min(32, "SESSION_SECRET must be at least 32 characters"),
   PAYMONGO_SECRET_KEY: z.string().default(""),
@@ -26,15 +33,20 @@ const schema = z.object({
 // crashing. At runtime (`next start`) validation is still strict.
 const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
 
-const parsed = schema.safeParse(
-  isBuildPhase
-    ? {
-        DATABASE_URL: "postgresql://build:build@localhost:5432/build",
-        SESSION_SECRET: "build-time-placeholder-secret-not-used-at-runtime",
-        ...process.env,
-      }
-    : process.env,
-);
+const buildPlaceholders = {
+  DATABASE_URL: "postgresql://build:build@localhost:5432/build",
+  SESSION_SECRET: "build-time-placeholder-secret-not-used-at-runtime",
+};
+
+let parsed = schema.safeParse(isBuildPhase ? { ...buildPlaceholders, ...process.env } : process.env);
+
+if (!parsed.success && isBuildPhase) {
+  // Never fail the build over a bad variable; `next start` re-validates and
+  // fails loudly there, which is where the real values matter.
+  const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
+  console.warn(`[env] Ignoring invalid environment during build (${issues}). It will be checked again at startup.`);
+  parsed = schema.safeParse({ ...buildPlaceholders, NODE_ENV: "production" });
+}
 
 if (!parsed.success) {
   // Fail fast and loudly at boot rather than mysteriously at request time.
