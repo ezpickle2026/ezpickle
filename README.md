@@ -99,8 +99,27 @@ Seeded accounts (password `EzPickle!2026`, or whatever you set as `SEED_PASSWORD
 | `PAYMONGO_LIVEMODE` | yes in prod | `true` with live keys. Guards against test events reaching live logic. |
 | `PAYMONGO_PAYMENT_METHODS` | — | Comma separated. Must be enabled on your PayMongo account. |
 | `CRON_SECRET` | recommended | Bearer token for `/api/cron/release-holds`. |
-| `RESEND_API_KEY` | optional | Without it, notifications are stored in the DB but not emailed. |
-| `MAIL_FROM` | optional | Sender identity for emails. |
+| `GMAIL_USER` | optional | Gmail address emails are sent from. Defaults to `ezpickle2026@gmail.com`. |
+| `GMAIL_APP_PASSWORD` | for email | Google App Password for `GMAIL_USER` (not the normal Gmail password). When set, all emails go out through Gmail. |
+| `RESEND_API_KEY` | optional | Alternative to Gmail. Used only when `GMAIL_APP_PASSWORD` is not set. |
+| `MAIL_FROM` | optional | Sender name, e.g. `EzPickle <ezpickle2026@gmail.com>`. With Gmail only the name part is used; the address is always `GMAIL_USER`. |
+
+Without `GMAIL_APP_PASSWORD` or `RESEND_API_KEY`, notifications are stored in the DB but not emailed.
+
+### Booking confirmation emails
+
+When a customer's court booking is paid (PayMongo webhook, the payment check when they return from checkout, or staff creating a walk-in marked as paid), they get a "Booking confirmed" email from `ezpickle2026@gmail.com`. It includes the reference, court, date, time, amount paid, payment method and a button linking to their booking page with the check-in QR code. Each payment sends exactly one confirmation, even if the webhook and the return-from-checkout check run at the same time.
+
+To turn it on:
+
+1. Sign in to the `ezpickle2026@gmail.com` Google account and turn on **2-Step Verification** (Google Account → Security).
+2. Go to <https://myaccount.google.com/apppasswords>, create an app password named "EzPickle", and copy the 16-character code.
+3. In Railway → your app service → Variables, add `GMAIL_APP_PASSWORD` with that code, then redeploy.
+4. Set `APP_URL` to your public site URL so the link in the email works.
+
+Gmail allows about 500 emails per day from a regular account. Sent emails also show up in that Gmail account's **Sent** folder.
+
+Every email is also saved in the `Notification` table with status `SENT`, `FAILED` or `QUEUED` (no key configured). Check it there if a customer says they didn't get one.
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_BUCKET` | optional | Direct media upload. Without them, the media manager takes hosted URLs. |
 | `SEED_ENABLED` | dev only | Must be `true` to seed when `NODE_ENV=production`. |
 | `SEED_PASSWORD` | dev only | Password for every seeded account. |
@@ -449,7 +468,7 @@ Node 20+, a reachable PostgreSQL, `npm run build`, then `npm run db:release` and
 1. **Nothing here has been executed.** The build environment had no network access, so `npm install`, `prisma migrate` and `next build` were never run. Expect to fix a small number of type or import errors on first build. `npm run typecheck` is the fastest way to find them.
 2. **SSE is single-instance.** The pub/sub bus lives in process memory. On multiple instances, a booking made on instance A will not push to a browser connected to instance B — though polling and page loads still show correct data. Swap `src/lib/realtime.ts` for Postgres `LISTEN`/`NOTIFY` or Redis before scaling horizontally.
 3. **Media upload is URL-based** unless Supabase credentials are configured. The admin media manager accepts hosted URLs.
-4. **Email only sends with `RESEND_API_KEY`.** Without it, notifications are persisted to the `Notification` table but never delivered. SMS is not implemented at all.
+4. **Email only sends with `GMAIL_APP_PASSWORD` (or `RESEND_API_KEY`).** Without one, notifications are persisted to the `Notification` table but never delivered. SMS is not implemented at all.
 5. **Refunds use PayMongo v1**, since that is where the refunds endpoint lives. Partial refunds are supported; the refund status is not polled afterwards.
 6. **Camera QR scanning uses `BarcodeDetector`**, which Safari and older Android do not support. Those browsers fall back to the text field, and a handheld scanner always works.
 7. **No password reset email flow.** Staff can reset a password from the Users screen; customers currently need to ask.
