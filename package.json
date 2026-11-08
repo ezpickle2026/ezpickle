@@ -14,7 +14,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:constraints": "tsx scripts/apply-constraints.ts",
     "db:setup": "prisma migrate dev --name init && npm run db:constraints && npm run db:seed",
-    "db:seed": "tsx prisma/seed.ts",
+    "db:seed": "tsx --conditions=react-server prisma/seed.ts",
     "db:studio": "prisma studio",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -23,7 +23,7 @@
     "admin:create": "tsx scripts/create-admin.ts"
   },
   "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx --conditions=react-server prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.2.1",

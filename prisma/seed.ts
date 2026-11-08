@@ -117,6 +117,13 @@ async function main() {
     ["jules.mendoza@example.com", "Jules Mendoza", "09170001111", 3.5],
     ["kim.navarro@example.com", "Kim Navarro", "09170112233", 4.5],
     ["lara.ocampo@example.com", "Lara Ocampo", "09170223344", 2.5],
+    ["miguel.santos@example.com", "Miguel Santos", "09170334455", 3.5],
+    ["nina.reyes@example.com", "Nina Reyes", "09170445566", 4.0],
+    ["oscar.villanueva@example.com", "Oscar Villanueva", "09170556677", 3.0],
+    ["paula.garcia@example.com", "Paula Garcia", "09170667788", 4.5],
+    ["quinn.bautista@example.com", "Quinn Bautista", "09170778899", 2.5],
+    ["rina.aquino@example.com", "Rina Aquino", "09170889900", 3.5],
+    ["sam.torres@example.com", "Sam Torres", "09170990011", 4.0],
   ] as const;
 
   const customers = await Promise.all(
@@ -477,6 +484,15 @@ async function main() {
   ];
 
   for (const plan of openPlayPlan) {
+    // Each player and waitlister in a session must be a different customer
+    // (one registration per user per session), so make sure there are enough.
+    const needed = plan.joiners + (plan.joiners >= plan.max ? 3 : 0);
+    if (needed > customers.length) {
+      throw new Error(
+        `Open Play "${plan.title}" needs ${needed} distinct customers but only ${customers.length} are seeded.`,
+      );
+    }
+
     const dateISO = dayOffset(plan.offset);
     const session = await prisma.openPlaySession.create({
       data: {
