@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EzPickle Proposal</title>
+<!--
+  HOW TO USE THIS TEMPLATE
+  1. Search for "fill" (the yellow-highlighted fields) and replace each one with
+     the client's details: facility name, contact, number of courts, prices, dates.
+  2. Delete any feature or package you are not offering.
+  3. Export to PDF: open in Chrome → Print → "Save as PDF", paper A4, margins "None",
+     tick "Background graphics". Or run:  node proposal/build-pdf.mjs
+  4. When you're done editing, remove the "fill" highlight by deleting the
+     .fill rule in the <style> block (or just leave it, the PDF build strips it).
+-->
+<style>
+  :root {
+    --ink: #0A0A0A;
+    --text: #1d2318;
+    --muted: #5b6455;
+    --line: #e3e8dc;
+    --soft: #f5f8f0;
+    --pickle: #6FCF2B;
+    --pickle-dark: #3F7A17;
+    --pickle-tint: #F0FCE9;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    margin: 0;
+    background: #d9ddd4;
+    color: var(--text);
+    font: 10.5pt/1.55 "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 12mm auto;
+    padding: 18mm 18mm 16mm;
+    background: #fff;
+    position: relative;
+    box-shadow: 0 6px 30px rgba(0,0,0,.15);
+    page-break-after: always;
+    break-after: page;
+    overflow: hidden;
+  }
+  .page:last-child { page-break-after: auto; break-after: auto; }
+  @page { size: A4; margin: 0; }
+  @media print {
+    body { background: #fff; }
+    .page { margin: 0; box-shadow: none; height: 297mm; }
+  }
+  @media screen and (max-width: 820px) {
+    .page { width: auto; min-height: 0; margin: 0 0 12px; padding: 24px 16px; }
+    .grid-2, .feature, .pkg-grid, .stats { grid-template-columns: 1fr !important; }
+  }
+
+  /* Placeholder fields to replace */
+  .fill { background: #fff3a8; border-radius: 3px; padding: 0 3px; }
+
+  h1, h2, h3 { color: var(--ink); line-height: 1.2; margin: 0; }
+  h1 { font-size: 30pt; letter-spacing: -0.02em; }
+  h2 { font-size: 19pt; letter-spacing: -0.01em; margin-bottom: 3mm; }
+  h3 { font-size: 12.5pt; margin-bottom: 1.5mm; }
+  p { margin: 0 0 3mm; }
+  ul { margin: 0 0 3mm; padding-left: 5mm; }
+  li { margin-bottom: 1mm; }
+  .eyebrow {
+    font-size: 8pt; font-weight: 700; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--pickle-dark); margin-bottom: 2mm;
+  }
+  .lead { font-size: 12pt; color: var(--muted); }
+  .muted { color: var(--muted); }
+
+  .page-head {
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid var(--line); padding-bottom: 4mm; margin-bottom: 8mm;
+    font-size: 8.5pt; color: var(--muted);
+  }
+  .page-head img { height: 9mm; }
+  .page-foot {
+    position: absolute; left: 18mm; right: 18mm; bottom: 9mm;
+    display: flex; justify-content: space-between; font-size: 8pt; color: var(--muted);
+  }
+
+  /* Cover */
+  .cover { background: var(--ink); color: #fff; display: flex; flex-direction: column; padding: 0; }
+  .cover-top { padding: 20mm 18mm 0; }
+  .cover-logo { width: 34mm; background: #fff; border-radius: 6mm; padding: 1mm; }
+  .cover h1 { color: #fff; font-size: 34pt; margin-top: 14mm; }
+  .cover h1 em { font-style: normal; color: var(--pickle); }
+  .cover .lead { color: #b9c2b1; margin-top: 4mm; max-width: 150mm; }
+  .cover-shot { margin: 12mm 0 0 18mm; flex: 1; position: relative; }
+  .cover-shot img {
+    width: 100%; border-radius: 4mm 0 0 0; border: 1px solid #2b2b2b; border-right: 0; display: block;
+    box-shadow: 0 0 0 1px rgba(111,207,43,.35), 0 20px 60px -20px rgba(111,207,43,.55);
+  }
+  .cover-meta {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6mm;
+    padding: 9mm 18mm 12mm; border-top: 1px solid #242424; background: #0A0A0A;
+    font-size: 9pt; position: relative; z-index: 1;
+  }
+  .cover-meta .k { color: #8a9482; font-size: 7.5pt; letter-spacing: .14em; text-transform: uppercase; }
+  .cover-meta .v { color: #fff; font-weight: 600; margin-top: 1mm; }
+  .cover .fill { color: #1d2318; }
+
+  /* Layout pieces */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 7mm; }
+  .card { border: 1px solid var(--line); border-radius: 3mm; padding: 4mm 5mm; background: #fff; }
+  .card.tint { background: var(--pickle-tint); border-color: #cdeeb2; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4mm; margin: 5mm 0; }
+  .stat { background: var(--soft); border-radius: 3mm; padding: 4mm; }
+  .stat b { display: block; font-size: 17pt; color: var(--pickle-dark); line-height: 1.1; }
+  .stat span { font-size: 8.5pt; color: var(--muted); }
+
+  .check { list-style: none; padding: 0; }
+  .check li { padding-left: 6mm; position: relative; }
+  .check li::before {
+    content: ""; position: absolute; left: 0; top: 1.6mm; width: 3mm; height: 3mm; border-radius: 50%;
+    background: var(--pickle);
+    box-shadow: inset 0 0 0 .8mm var(--pickle-tint);
+  }
+
+  /* Feature blocks */
+  .feature { display: grid; grid-template-columns: 1fr; gap: 3mm; margin-bottom: 5mm; }
+  .feature + .feature { border-top: 1px solid var(--line); padding-top: 5mm; }
+  .shot {
+    width: 100%; height: 74mm; object-fit: cover; object-position: top; display: block; border-radius: 2.5mm; border: 1px solid #1f1f1f;
+    box-shadow: 0 8px 24px -14px rgba(0,0,0,.6);
+  }
+  .tag {
+    display: inline-block; font-size: 7.5pt; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    background: var(--pickle-tint); color: var(--pickle-dark); padding: .6mm 2.2mm; border-radius: 10mm; margin-right: 1.5mm;
+  }
+  .split { display: grid; grid-template-columns: 62mm 1fr; gap: 8mm; align-items: center; }
+  .split .shot { height: 86mm; width: auto; max-width: 100%; margin: 0 auto; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-bottom: 4mm; }
+  th, td { text-align: left; padding: 1.8mm 3mm; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 7.5pt; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); background: var(--soft); }
+  td.num, th.num { text-align: right; white-space: nowrap; }
+  tr.total td { font-weight: 700; border-top: 2px solid var(--ink); border-bottom: 0; }
+
+  /* Packages */
+  .pkg-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; margin-bottom: 4mm; }
+  .pkg { border: 1px solid var(--line); border-radius: 3mm; padding: 4mm; display: flex; flex-direction: column; }
+  .pkg.best { border: 2px solid var(--pickle); position: relative; }
+  .pkg.best::before {
+    content: "Recommended"; position: absolute; top: -3mm; left: 5mm; background: var(--pickle); color: var(--ink);
+    font-size: 7pt; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; padding: .6mm 2.4mm; border-radius: 10mm;
+  }
+  .pkg .price { font-size: 18pt; font-weight: 800; color: var(--ink); margin: 2mm 0 0; }
+  .pkg .per { font-size: 8.5pt; color: var(--muted); margin-bottom: 3mm; }
+  .pkg ul { font-size: 9pt; }
+
+  /* Timeline */
+  .timeline { list-style: none; padding: 0; margin: 0 0 4mm; font-size: 9.5pt; }
+  .timeline li { display: grid; grid-template-columns: 28mm 1fr; gap: 5mm; padding: 2mm 0; border-bottom: 1px solid var(--line); }
+  .timeline .when { font-weight: 700; color: var(--pickle-dark); font-size: 9.5pt; }
+
+  .sign { display: grid; grid-template-columns: 1fr 1fr; gap: 12mm; margin-top: 10mm; }
+  .sign .line { border-bottom: 1px solid var(--ink); height: 16mm; }
+  .sign .lbl { font-size: 8.5pt; color: var(--muted); margin-top: 1.5mm; }
+</style>
+</head>
+<body>
+
+<!-- ============ 1. COVER ============ -->
+<section class="page cover">
+  <div class="cover-top">
+    <img class="cover-logo" src="images/logo.png" alt="EzPickle">
+    <div class="eyebrow" style="color:var(--pickle);margin-top:14mm">Business proposal</div>
+    <h1 style="margin-top:0">A complete booking &amp; facility system for <em><span class="fill">[Facility Name]</span></em></h1>
+    <p class="lead">Live court availability, GCash / Maya payments, QR check-in, self-organizing Open Play and a full back office, in one platform built for pickleball in the Philippines.</p>
+  </div>
+  <div class="cover-shot"><img src="images/1-homepage.jpg" alt="EzPickle homepage"></div>
+  <div class="cover-meta">
+    <div><div class="k">Prepared for</div><div class="v"><span class="fill">[Client name, position]</span></div></div>
+    <div><div class="k">Prepared by</div><div class="v"><span class="fill">[Your name]</span>, EzPickle</div></div>
+    <div><div class="k">Date · Ref</div><div class="v"><span class="fill">[11 Nov 2026]</span> · <span class="fill">[EZP-2026-001]</span></div></div>
+  </div>
+</section>
+
+<!-- ============ 2. SUMMARY ============ -->
+<section class="page">
+  <div class="page-head"><img src="images/logo.png" alt="EzPickle"><span>Proposal for <span class="fill">[Facility Name]</span></span></div>
+
+  <div class="eyebrow">Executive summary</div>
+  <h2>Fewer Messenger replies. Fuller courts. Cleaner books.</h2>
+  <p class="lead">Thank you for the opportunity to work with <span class="fill">[Facility Name]</span>. This proposal outlines how EzPickle will run your court bookings, payments, Open Play and front desk from one system, starting <span class="fill">[target go-live date]</span>.</p>
+
+  <div class="grid-2" style="margin-top:4mm">
+    <div class="card">
+      <h3>What we heard</h3>
+      <ul class="check">
+        <li>Bookings come in through Messenger, calls and walk-ins, and staff confirm each slot by hand.</li>
+        <li>Double-bookings and "available pa po ba?" back-and-forth cost time and customers.</li>
+        <li>Payments are checked manually against screenshots.</li>
+        <li>Open Play groups are sorted on paper and some players wait too long.</li>
+        <li><span class="fill">[Add a pain point specific to this client, or delete]</span></li>
+      </ul>
+    </div>
+    <div class="card tint">
+      <h3>What EzPickle changes</h3>
+      <ul class="check">
+        <li>Customers see live availability and book in under 60 seconds, 24/7.</li>
+        <li>Double-booking is blocked at the database level, not just on screen.</li>
+        <li>Payment is collected up front via PayMongo: GCash, Maya, GrabPay, QR Ph and cards.</li>
+        <li>The auto-stacker builds skill-balanced Open Play courts in one click.</li>
+        <li>You see revenue, bookings, utilization and stock on one dashboard.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><b>&lt; 60s</b><span>to book and pay for a court</span></div>
+    <div class="stat"><b>0</b><span>double-bookings, enforced by the database</span></div>
+    <div class="stat"><b>5</b><span>payment methods via PayMongo</span></div>
+    <div class="stat"><b>24/7</b><span>online booking, no staff needed</span></div>
+  </div>
+
+  <h3>Scope for <span class="fill">[Facility Name]</span></h3>
+  <table>
+    <tr><th>Item</th><th>Details</th></tr>
+    <tr><td>Courts</td><td><span class="fill">[4]</span> courts · <span class="fill">[indoor / outdoor]</span></td></tr>
+    <tr><td>Operating hours</td><td><span class="fill">[6:00 AM – 11:00 PM daily]</span></td></tr>
+    <tr><td>Court rates</td><td><span class="fill">[₱500–₱700/hr, peak and off-peak]</span></td></tr>
+    <tr><td>Staff accounts</td><td><span class="fill">[1 owner, 2 managers, 4 front desk]</span></td></tr>
+    <tr><td>Domain</td><td><span class="fill">[book.yourfacility.ph]</span></td></tr>
+  </table>
+
+  <div class="page-foot"><span>EzPickle · Play Easy. Play More.</span><span>2</span></div>
+</section>
+
+<!-- ============ 3. FEATURES: BOOKING ============ -->
+<section class="page">
+  <div class="page-head"><img src="images/logo.png" alt="EzPickle"><span>Feature highlights · For your players</span></div>
+
+  <div class="eyebrow">Feature highlights</div>
+  <h2>What your players get</h2>
+
+  <div class="feature">
+    <img class="shot" src="images/2-live-booking.jpg" alt="Live court availability and booking wizard">
+    <div>
+      <span class="tag">Booking</span><span class="tag">Payments</span>
+      <h3 style="margin-top:2mm">Live availability and a 5-step booking flow</h3>
+      <p>Players pick a date, court and time on a grid that updates in real time as others book. Their slot is held for 15 minutes while they pay with GCash, Maya, GrabPay, QR Ph or card through PayMongo's secure checkout. Peak and off-peak rates are priced automatically, even across a booking that spans both.</p>
+    </div>
+  </div>
+
+  <div class="feature">
+    <div class="split">
+      <img class="shot" src="images/7-mobile.jpg" alt="EzPickle on mobile">
+      <div>
+        <span class="tag">Mobile</span><span class="tag">QR check-in</span>
+        <h3 style="margin-top:2mm">Made for phones, with QR check-in</h3>
+        <p>Most bookings happen on a phone, so every screen is designed mobile-first. No app to download.</p>
+        <ul class="check">
+          <li>Booking confirmation by email with a signed QR code.</li>
+          <li>Front desk scans it with a phone camera or handheld scanner.</li>
+          <li>Customer dashboard with upcoming bookings, payment history and profile.</li>
+          <li>Promo codes for launches, loyal players and partners.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-foot"><span>EzPickle · Play Easy. Play More.</span><span>3</span></div>
+</section>
+
+<!-- ============ 4. FEATURES: OPEN PLAY ============ -->
+<section class="page">
+  <div class="page-head"><img src="images/logo.png" alt="EzPickle"><span>Feature highlights · Open Play</span></div>
+
+  <div class="eyebrow">Feature highlights</div>
+  <h2>Open Play that sorts itself out</h2>
+
+  <div class="feature">
+    <img class="shot" src="images/3-open-play.jpg" alt="Open Play sessions">
+    <div>
+      <span class="tag">Open Play</span>
+      <h3 style="margin-top:2mm">Join solo, with a waitlist when it's full</h3>
+      <p>Players browse sessions by skill level, join and pay as individuals, and are added to a waitlist automatically when the session fills. When someone drops out, the next player is promoted.</p>
+    </div>
+  </div>
+
+  <div class="feature">
+    <img class="shot" src="images/4-auto-stacker.jpg" alt="Auto-stacker">
+    <div>
+      <span class="tag">Staff tool</span>
+      <h3 style="margin-top:2mm">One-click, skill-balanced court stacking</h3>
+      <p>The auto-stacker groups players by rating and avoids repeating the same pairings across rounds. Courts never go over capacity, leftovers go to a clearly marked bench, and staff can move anyone by hand afterwards.</p>
+    </div>
+  </div>
+
+  <div class="page-foot"><span>EzPickle · Play Easy. Play More.</span><span>4</span></div>
+</section>
+
+<!-- ============ 5. FEATURES: OWNER ============ -->
+<section class="page">
+  <div class="page-head"><img src="images/logo.png" alt="EzPickle"><span>Feature highlights · For owners &amp; staff</span></div>
+
+  <div class="eyebrow">Feature highlights</div>
+  <h2>Run the whole facility from one place</h2>
+
+  <div class="feature">
+    <img class="shot" src="images/5-admin-dashboard.jpg" alt="Owner dashboard">
+    <div>
+      <span class="tag">Dashboard</span>
+      <h3 style="margin-top:2mm">Today at a glance</h3>
+      <p>Revenue, bookings, court utilization, active Open Play, pending payments and low-stock alerts the moment you sign in, plus the next bookings coming up.</p>
+    </div>
+  </div>
+
+  <div class="feature">
+    <img class="shot" src="images/6-reports.jpg" alt="Sales reports">
+    <div>
+      <span class="tag">Reports</span><span class="tag">CSV export</span>
+      <h3 style="margin-top:2mm">Sales, utilization and inventory reports</h3>
+      <p>Break revenue down by category, payment method and court. Every report exports to CSV for your accountant.</p>
+    </div>
+  </div>
+
+  <div class="page-foot"><span>EzPickle · Play Easy. Play More.</span><span>5</span></div>
+</section>
+
+<!-- ============ 6. FULL FEATURE LIST + RELIABILITY ============ -->
+<section class="page">
+  <div class="page-head"><img src="images/logo.png" alt="EzPickle"><span>Everything included</span></div>
+
+  <div class="eyebrow">Everything included</div>
+  <h2>Full feature list</h2>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>Customer side</h3>
+      <ul class="check">
+        <li>Homepage with facility slideshow, court cards, pricing and Open Play preview</li>
+        <li>Live availability grid, updating as other people book</li>
+        <li>Five-step booking: date → court → time → details → payment</li>
+        <li>PayMongo checkout: GCash, Maya, GrabPay, QR Ph, cards</li>
+        <li>Booking confirmation email with a signed QR code</li>
+        <li>Customer dashboard: bookings, payment history, profile</li>
+        <li>Open Play: join solo, waitlist, see your stack</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Staff &amp; owner side</h3>
+      <ul class="check">
+        <li>Dashboard: revenue, bookings, utilization, pending payments, low stock</li>
+        <li>Calendar: day grid, week and month views</li>
+        <li>Walk-ins, rescheduling, cancellations and refunds</li>
+        <li>QR check-in by camera or handheld scanner</li>
+        <li>Courts, peak/off-peak pricing rules, maintenance blocks</li>
+        <li>Open Play sessions with auto-stacker and manual overrides</li>
+        <li>Inventory with movement ledger and counter sales</li>
+        <li>Sales, utilization and inventory reports (CSV)</li>
+        <li>Staff roles, promo codes, media manager, audit log</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2 style="margin-top:8mm">Built to be trusted with your money</h2>
+  <div class="grid-2">
+    <div>
+      <h3>No double-bookings, ever</h3>
+      <p class="muted">Overlaps are blocked in three layers, ending with a database rule that no bug, second device or staff mistake can get around.</p>
+      <h3>Accurate to the centavo</h3>
+      <p class="muted">All amounts are stored as whole centavos and all times in Asia/Manila, so totals and reports always match.</p>
+    </div>
+    <div>
+      <h3>Secure payments</h3>
+      <p class="muted">Card and e-wallet details never touch our servers. PayMongo handles them, and every payment notification is signature-verified.</p>
+      <h3>Role-based access and audit log</h3>
+      <p class="muted">Front desk, managers and owners each see only what they need, and every sensitive change is recorded.</p>
+    </div>
+  </div>
+
+  <div class="page-foot"><span>EzPickle · Play Easy. Play More.</span><span>6</span></div>
+</section>
+
+<!-- ============ 7. INVESTMENT + TIMELINE ============ -->
+<section class="page">
+  <div class="page-head"><img src="images/logo.png" alt="EzPickle"><span>Investment &amp; timeline</span></div>
+
+  <div class="eyebrow">Investment</div>
+  <h2>Packages</h2>
+  <p class="muted">Edit or remove packages to suit this client. Prices exclude PayMongo transaction fees, which are charged by PayMongo directly.</p>
+
+  <div class="pkg-grid">
+    <div class="pkg">
+      <h3>Starter</h3>
+      <div class="price"><span class="fill">₱[0,000]</span></div>
+      <div class="per">per month · up to <span class="fill">[2]</span> courts</div>
+      <ul class="check">
+        <li>Online booking &amp; payments</li>
+        <li>QR check-in</li>
+        <li>Dashboard &amp; calendar</li>
+        <li>Email support</li>
+      </ul>
+    </div>
+    <div class="pkg best">
+      <h3>Club</h3>
+      <div class="price"><span class="fill">₱[0,000]</span></div>
+      <div class="per">per month · up to <span class="fill">[6]</span> courts</div>
+      <ul class="check">
+        <li>Everything in Starter</li>
+        <li>Open Play &amp; auto-stacker</li>
+        <li>Inventory &amp; counter sales</li>
+        <li>Reports &amp; promo codes</li>
+        <li>Priority support</li>
+      </ul>
+    </div>
+    <div class="pkg">
+      <h3>Pro</h3>
+      <div class="price"><span class="fill">₱[0,000]</span></div>
+      <div class="per">per month · unlimited courts</div>
+      <ul class="check">
+        <li>Everything in Club</li>
+        <li>Custom domain &amp; branding</li>
+        <li>Multi-location ready</li>
+        <li>On-site staff training</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Quotation</h3>
+  <table>
+    <tr><th>Item</th><th class="num">Qty</th><th class="num">Amount</th></tr>
+    <tr><td>One-time setup &amp; data migration</td><td class="num">1</td><td class="num"><span class="fill">₱[0,000]</span></td></tr>
+    <tr><td><span class="fill">[Club]</span> plan, first <span class="fill">[12]</span> months</td><td class="num"><span class="fill">[12]</span></td><td class="num"><span class="fill">₱[0,000]</span></td></tr>
+    <tr><td>Staff training (<span class="fill">[2]</span> sessions)</td><td class="num"><span class="fill">[2]</span></td><td class="num"><span class="fill">₱[0,000]</span></td></tr>
+    <tr><td>Discount <span class="fill">[launch partner, remove if none]</span></td><td class="num"></td><td class="num"><span class="fill">−₱[0,000]</span></td></tr>
+    <tr class="total"><td>Total</td><td class="num"></td><td class="num"><span class="fill">₱[00,000]</span></td></tr>
+  </table>
+
+  <div class="eyebrow" style="margin-top:6mm">Timeline</div>
+  <ul class="timeline">
+    <li><span class="when">Week 1</span><span><b>Kick-off &amp; setup.</b> Courts, rates, hours, branding and staff accounts configured. PayMongo account connected.</span></li>
+    <li><span class="when">Week 2</span><span><b>Data &amp; testing.</b> Existing bookings and products imported. Test bookings and payments run end to end.</span></li>
+    <li><span class="when">Week 3</span><span><b>Training &amp; soft launch.</b> Front desk trained on check-in, walk-ins and Open Play. Regulars invited first.</span></li>
+    <li><span class="when"><span class="fill">[Go-live date]</span></span><span><b>Public launch.</b> Booking link shared on your Facebook page and Messenger auto-reply.</span></li>
+  </ul>
+
+  <div class="page-foot"><span>EzPickle · Play Easy. Play More.</span><span>7</span></div>
+</section>
+
+<!-- ============ 8. NEXT STEPS + ACCEPTANCE ============ -->
+<section class="page">
+  <div class="page-head"><img src="images/logo.png" alt="EzPickle"><span>Next steps</span></div>
+
+  <div class="eyebrow">Next steps</div>
+  <h2>What we need from you</h2>
+  <ul class="check">
+    <li>Court names, rates (peak / off-peak) and operating hours</li>
+    <li>A PayMongo business account (we'll help you apply if you don't have one)</li>
+    <li>Logo, facility photos and your preferred domain</li>
+    <li>Names and emails of staff who need access</li>
+    <li>Products you sell at the counter, with prices and current stock</li>
+  </ul>
+
+  <div class="grid-2" style="margin-top:6mm">
+    <div class="card">
+      <h3>Terms</h3>
+      <ul>
+        <li>This proposal is valid until <span class="fill">[11 Dec 2026]</span>.</li>
+        <li>Payment terms: <span class="fill">[50% on signing, 50% on go-live; monthly plan billed in advance]</span>.</li>
+        <li>Minimum term: <span class="fill">[12 months]</span>.</li>
+        <li>Your customer data stays yours and can be exported at any time.</li>
+        <li><span class="fill">[Any other terms]</span></li>
+      </ul>
+    </div>
+    <div class="card tint">
+      <h3>See it live</h3>
+      <p>Book a walkthrough and we'll show you EzPickle running with your own courts and rates.</p>
+      <p><b><span class="fill">[Your name]</span></b><br>
+        <span class="fill">[mobile number]</span><br>
+        <span class="fill">[email address]</span><br>
+        <span class="fill">[facebook.com/yourpage]</span></p>
+    </div>
+  </div>
+
+  <h2 style="margin-top:10mm">Acceptance</h2>
+  <p class="muted">By signing below, <span class="fill">[Facility Name]</span> accepts this proposal and the <span class="fill">[Club]</span> package as quoted.</p>
+  <div class="sign">
+    <div>
+      <div class="line"></div>
+      <div class="lbl"><b><span class="fill">[Client name]</span></b>, <span class="fill">[Position]</span>, <span class="fill">[Facility Name]</span></div>
+      <div class="lbl">Date: ____________________</div>
+    </div>
+    <div>
+      <div class="line"></div>
+      <div class="lbl"><b><span class="fill">[Your name]</span></b>, EzPickle</div>
+      <div class="lbl">Date: ____________________</div>
+    </div>
+  </div>
+
+  <p class="muted" style="margin-top:10mm;font-size:8pt">Screenshots show EzPickle with sample demo data, not real customer information.</p>
+
+  <div class="page-foot"><span>EzPickle · Play Easy. Play More.</span><span>8</span></div>
+</section>
+
+</body>
+</html>
