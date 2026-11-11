@@ -4,10 +4,12 @@ A ready-to-send, 8-page A4 sales proposal for pitching EzPickle to a pickleball 
 
 | File | What it is |
 | --- | --- |
-| `ezpickle-proposal.html` | The template. Edit this one. |
+| `ezpickle-proposal.docx` | **Editable Word version.** Open in Word or Google Docs and type over the yellow fields. |
+| `ezpickle-proposal.html` | HTML version of the same template (for the PDF export below). |
 | `ezpickle-proposal-template.pdf` | PDF preview of the blank template, with placeholders highlighted. |
 | `images/` | Screenshots (taken from demo data) and the logo used in the proposal. |
 | `build-pdf.mjs` | Turns the HTML into a PDF. |
+| `build-docx.cjs` | Regenerates the Word file (`node proposal/build-docx.cjs`). |
 
 ## Pages
 
@@ -20,7 +22,16 @@ A ready-to-send, 8-page A4 sales proposal for pitching EzPickle to a pickleball 
 7. **Investment**: three packages, quotation table, rollout timeline
 8. **Next steps**: what you need from the client, terms, contact details, signatures
 
-## How to fill it in
+## Fill it in with Word
+
+1. Open `ezpickle-proposal.docx` in Word (or upload it to Google Docs).
+2. Type over each yellow `[...]` field: facility name (also in the page header), contact, courts, prices, dates and terms. Delete any package or line you don't need.
+3. When you're done, select all (Ctrl+A) and set **Text Highlight Color → No Color**.
+4. Save as PDF: File → Save As → PDF.
+
+To swap a screenshot, right-click it → Change Picture.
+
+## Fill it in with the HTML version
 
 1. Open `ezpickle-proposal.html` in a text editor and search for `fill`. Each yellow-highlighted `[...]` field needs replacing: facility name, contact, courts, prices, dates, terms.
 2. Delete any package, pain point or line item you don't need.
