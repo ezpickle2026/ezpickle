@@ -8,7 +8,18 @@ import { getBrand } from "@/lib/settings";
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { businessName: name } = await getBrand();
+  const { businessName: name, logoUrl } = await getBrand();
+  // Browser-tab icon: the admin's uploaded logo, or the built-in EzPickle mark.
+  const customLogo = logoUrl !== "" && logoUrl !== "/logo.png";
+  const icons: Metadata["icons"] = customLogo
+    ? { icon: logoUrl, apple: logoUrl }
+    : {
+        icon: [
+          { url: "/favicon.ico", sizes: "any" },
+          { url: "/icon.png", type: "image/png", sizes: "512x512" },
+        ],
+        apple: "/apple-icon.png",
+      };
   return {
     metadataBase: new URL(process.env.APP_URL ?? "http://localhost:3000"),
     title: {
@@ -26,6 +37,7 @@ export async function generateMetadata(): Promise<Metadata> {
       locale: "en_PH",
     },
     twitter: { card: "summary_large_image", title: name, description: "Pickleball, booked easy." },
+    icons,
     robots: { index: true, follow: true },
     alternates: { canonical: "/" },
   };
