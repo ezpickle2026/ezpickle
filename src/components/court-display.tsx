@@ -22,6 +22,7 @@ type DisplaySession = {
     id: string;
     label: string;
     roundIndex: number;
+    createdAt: string;
     court: { name: string } | null;
     players: { id: string; user: { fullName: string } }[];
   }[];
@@ -38,6 +39,14 @@ function timeLabel(date: Date | string) {
     minute: "2-digit",
     timeZone: "Asia/Manila",
   }).format(new Date(date));
+}
+
+/** "12:05" style countdown; never negative. */
+function mmss(ms: number) {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
 }
 
 /** Stable signature of who is on which court, so we only flash on real changes. */
@@ -103,6 +112,16 @@ export function CourtDisplay({ sessionId }: { sessionId: string }) {
   const courts = session.groups.filter((g) => g.roundIndex === round && g.players.length > 0);
   const nextUp = session.players.filter((p) => !p.groupId && PAID.has(p.status));
 
+  // The round's clock starts when its stack was generated. Manual player moves
+  // keep the same groups, so they do not reset the timer.
+  const roundStart = courts.length
+    ? Math.min(...courts.map((g) => new Date(g.createdAt).getTime()))
+    : null;
+  const remaining =
+    roundStart != null ? roundStart + session.rotationMins * 60_000 - now.getTime() : null;
+  const timeUp = remaining != null && remaining <= 0;
+  const endingSoon = remaining != null && !timeUp && remaining <= 60_000;
+
   const cols =
     courts.length <= 1 ? "grid-cols-1" : courts.length <= 4 ? "grid-cols-2" : "grid-cols-3";
 
@@ -125,7 +144,31 @@ export function CourtDisplay({ sessionId }: { sessionId: string }) {
               Round {round}
             </span>
           )}
-          <span className="text-5xl font-semibold tabular-nums">{timeLabel(now)}</span>
+          {remaining != null && (
+            <motion.div
+              animate={timeUp ? { opacity: [1, 0.35, 1] } : { opacity: 1 }}
+              transition={timeUp ? { duration: 1, repeat: Infinity } : undefined}
+              className={`rounded-2xl px-5 py-1 text-center ${
+                timeUp
+                  ? "bg-red-500 text-white"
+                  : endingSoon
+                    ? "bg-amber-400 text-ink"
+                    : "bg-white/[0.06] text-white"
+              }`}
+              role="timer"
+              aria-live="off"
+            >
+              <p className="text-xs font-bold uppercase tracking-[0.2em] opacity-70">
+                {timeUp ? "Time's up" : "Time left"}
+              </p>
+              <p className="text-5xl font-extrabold tabular-nums leading-tight">
+                {mmss(remaining)}
+              </p>
+            </motion.div>
+          )}
+          <span className="text-3xl font-semibold tabular-nums text-white/60">
+            {timeLabel(now)}
+          </span>
           <button
             type="button"
             onClick={() => void document.documentElement.requestFullscreen?.()}
@@ -139,8 +182,20 @@ export function CourtDisplay({ sessionId }: { sessionId: string }) {
       </header>
 
       <AnimatePresence>
+        {timeUp && !flash && (
+          <motion.div
+            key="time-up"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="rounded-2xl bg-red-500 py-3 text-center text-3xl font-extrabold uppercase tracking-wide text-white"
+          >
+            Time&apos;s up — please finish your game
+          </motion.div>
+        )}
         {flash && (
           <motion.div
+            key="new-stack"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
