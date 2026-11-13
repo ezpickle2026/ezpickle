@@ -21,6 +21,7 @@ import {
   Ticket,
   Users,
   Users2,
+  Video,
   X,
 } from "lucide-react";
 import { api } from "@/lib/client";
@@ -38,6 +39,7 @@ const NAV: NavItem[] = [
   { href: "/admin/checkin", label: "Check-in", icon: QrCode, permission: "checkin:write" },
   { href: "/admin/courts", label: "Courts", icon: Activity, permission: "court:read" },
   { href: "/admin/open-play", label: "Open Play", icon: Users2, permission: "openplay:read" },
+  { href: "/admin/pickle-cam", label: "Pickle Cam", icon: Video, permission: "cam:read" },
   { href: "/admin/customers", label: "Customers", icon: Users, permission: "customer:read" },
   { href: "/admin/inventory", label: "Inventory", icon: Boxes, permission: "inventory:read" },
   { href: "/admin/sales", label: "Sales", icon: Receipt, permission: "inventory:read" },

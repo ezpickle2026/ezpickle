@@ -20,6 +20,8 @@ export const PERMISSIONS = {
   "user:manage": [Role.SUPER_ADMIN],
   "settings:write": [Role.SUPER_ADMIN],
   "audit:read": [Role.SUPER_ADMIN, Role.ADMIN],
+  "cam:read": [Role.SUPER_ADMIN, Role.ADMIN, Role.STAFF],
+  "cam:write": [Role.SUPER_ADMIN, Role.ADMIN],
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;

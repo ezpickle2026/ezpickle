@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 const LINKS = [
   { href: "/book", label: "Book a Court" },
   { href: "/open-play", label: "Open Play" },
+  { href: "/pickle-cam", label: "Pickle Cam" },
   { href: "/#courts", label: "Courts" },
   { href: "/#facilities", label: "Facilities" },
   { href: "/#pricing", label: "Pricing" },
