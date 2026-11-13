@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pairKey, stackPlayers, type StackPlayer } from "@/lib/stacking";
+import { pairKey, playerRecord, splitTeams, stackPlayers, type StackPlayer } from "@/lib/stacking";
 
 function players(ratings: number[]): StackPlayer[] {
   return ratings.map((rating, index) => ({
@@ -143,5 +143,44 @@ describe("stackPlayers", () => {
 describe("pairKey", () => {
   it("is order independent", () => {
     expect(pairKey("a", "b")).toBe(pairKey("b", "a"));
+  });
+});
+
+describe("splitTeams", () => {
+  it("pairs strongest with weakest in doubles", () => {
+    const { teamA, teamB } = splitTeams(players([3.0, 5.0, 3.5, 4.0]));
+    expect(teamA.map((p) => p.rating)).toEqual([5.0, 3.0]);
+    expect(teamB.map((p) => p.rating)).toEqual([4.0, 3.5]);
+  });
+
+  it("puts one player per side in singles", () => {
+    const { teamA, teamB } = splitTeams(players([3, 4]));
+    expect(teamA).toHaveLength(1);
+    expect(teamB).toHaveLength(1);
+  });
+
+  it("is stable regardless of input order", () => {
+    const a = splitTeams(players([3, 3, 3, 3]));
+    const b = splitTeams([...players([3, 3, 3, 3])].reverse());
+    expect(a.teamA.map((p) => p.id)).toEqual(b.teamA.map((p) => p.id));
+  });
+});
+
+describe("playerRecord", () => {
+  const games = [
+    { teamA: ["p1", "p2"], teamB: ["p3", "p4"], scoreA: 11, scoreB: 7 },
+    { teamA: ["p3", "p1"], teamB: ["p2", "p4"], scoreA: 9, scoreB: 11 },
+    { teamA: ["p5", "p6"], teamB: ["p7", "p8"], scoreA: 11, scoreB: 2 },
+  ];
+
+  it("counts only games the player was in", () => {
+    expect(playerRecord("p1", games)).toEqual({
+      wins: 1,
+      losses: 1,
+      played: 2,
+      pointsFor: 20,
+      pointsAgainst: 18,
+    });
+    expect(playerRecord("p9", games).played).toBe(0);
   });
 });

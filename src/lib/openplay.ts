@@ -3,7 +3,9 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { AppError, Errors } from "./errors";
 import { getSettings } from "./settings";
-import { stackPlayers, pairKey, type StackPlayer } from "./stacking";
+import { stackPlayers, pairKey, splitTeams, playerRecord, type StackPlayer } from "./stacking";
+import { can } from "./rbac";
+import type { SessionUser } from "./auth";
 import { notify } from "./notifications";
 import { publish } from "./realtime";
 
@@ -25,6 +27,8 @@ export async function sessionWithCounts(sessionId: string) {
         },
         orderBy: { label: "asc" },
       },
+      games: { orderBy: [{ roundIndex: "asc" }, { courtLabel: "asc" }] },
+      operator: { select: { id: true, fullName: true } },
       waitlist: { where: { status: { in: ["WAITING", "OFFERED"] } }, orderBy: { position: "asc" } },
     },
   });
@@ -298,8 +302,23 @@ export async function generateStack(sessionId: string, roundIndex = 1) {
   return result;
 }
 
-/** Manual admin override — drags a player onto another court. */
-export async function movePlayer(params: { playerId: string; groupId: string | null }) {
+/**
+ * Manual override — drags a player onto another court or the bench. Both the
+ * player and the target court must belong to `sessionId`, so a member who
+ * operates one session can never touch another.
+ */
+export async function movePlayer(params: {
+  sessionId: string;
+  playerId: string;
+  groupId: string | null;
+}) {
+  const current = await prisma.openPlayPlayer.findUnique({ where: { id: params.playerId } });
+  if (!current || current.sessionId !== params.sessionId) throw Errors.notFound("That player");
+  if (params.groupId) {
+    const group = await prisma.openPlayGroup.findUnique({ where: { id: params.groupId } });
+    if (!group || group.sessionId !== params.sessionId) throw Errors.notFound("That court");
+  }
+
   const player = await prisma.openPlayPlayer.update({
     where: { id: params.playerId },
     data: { groupId: params.groupId },
@@ -310,3 +329,97 @@ export async function movePlayer(params: { playerId: string; groupId: string | n
   await publish("openplay", { type: "stack_changed", sessionId: player.sessionId });
   return player;
 }
+
+// ---------------------------------------------------------------- operator
+
+/**
+ * Who may run the stacker for a session: admins always, plus the one member
+ * the admin assigned as operator. Throws otherwise.
+ */
+export async function assertCanOperate(sessionId: string, user: SessionUser) {
+  const session = await prisma.openPlaySession.findUnique({ where: { id: sessionId } });
+  if (!session) throw Errors.notFound("That Open Play session");
+  if (can(user.role, "openplay:write")) return session;
+  if (session.operatorUserId && session.operatorUserId === user.id) return session;
+  throw Errors.forbidden();
+}
+
+/** Assigns (or clears) the member who operates the stacker. */
+export async function setOperator(sessionId: string, userId: string | null) {
+  if (userId) {
+    const player = await prisma.openPlayPlayer.findUnique({
+      where: { sessionId_userId: { sessionId, userId } },
+    });
+    if (!player || !["REGISTERED", "CHECKED_IN"].includes(player.status)) {
+      throw new AppError(
+        "The operator must be a paid player in this session.",
+        409,
+        "operator_not_player",
+      );
+    }
+  }
+
+  const session = await prisma.openPlaySession.update({
+    where: { id: sessionId },
+    data: { operatorUserId: userId },
+    include: { operator: { select: { id: true, fullName: true } } },
+  });
+  await publish("openplay", { type: "operator_changed", sessionId });
+  return session;
+}
+
+/**
+ * Records (or corrects) the score of one court's game. Teams are taken from
+ * who is on that court right now, split the same way every phone shows them.
+ */
+export async function recordGame(params: {
+  sessionId: string;
+  groupId: string;
+  scoreA: number;
+  scoreB: number;
+  recordedById: string;
+}) {
+  const group = await prisma.openPlayGroup.findUnique({
+    where: { id: params.groupId },
+    include: { players: true, court: { select: { name: true } } },
+  });
+  if (!group || group.sessionId !== params.sessionId) throw Errors.notFound("That court");
+  if (group.players.length < 2) {
+    throw new AppError("This court needs at least two players.", 409, "court_too_small");
+  }
+  if (params.scoreA === params.scoreB) {
+    throw new AppError("A game can't end in a tie.", 422, "tied_score");
+  }
+
+  const { teamA, teamB } = splitTeams(
+    group.players.map((p) => ({ id: p.id, rating: p.skillRating })),
+  );
+  const data = {
+    sessionId: params.sessionId,
+    roundIndex: group.roundIndex,
+    courtLabel: group.court?.name ?? group.label,
+    teamA: teamA.map((p) => p.id),
+    teamB: teamB.map((p) => p.id),
+    scoreA: params.scoreA,
+    scoreB: params.scoreB,
+    recordedById: params.recordedById,
+  };
+
+  const game = await prisma.openPlayGame.upsert({
+    where: { groupId: group.id },
+    create: { groupId: group.id, ...data },
+    update: data,
+  });
+  await publish("openplay", { type: "game_recorded", sessionId: params.sessionId });
+  return game;
+}
+
+/** Removes a mistaken score. */
+export async function deleteGame(params: { sessionId: string; gameId: string }) {
+  const game = await prisma.openPlayGame.findUnique({ where: { id: params.gameId } });
+  if (!game || game.sessionId !== params.sessionId) throw Errors.notFound("That game");
+  await prisma.openPlayGame.delete({ where: { id: game.id } });
+  await publish("openplay", { type: "game_recorded", sessionId: params.sessionId });
+}
+
+export { playerRecord };

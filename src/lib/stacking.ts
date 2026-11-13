@@ -141,3 +141,42 @@ function totalScore(
 function round(n: number): number {
   return Math.round(n * 100) / 100;
 }
+
+/**
+ * Splits one court's players into two sides. Snake order by rating
+ * (A B B A A B B A …) so doubles pairs the strongest with the weakest:
+ * [5.0, 4.0, 3.5, 3.0] -> A = 5.0 + 3.0, B = 4.0 + 3.5. Ties break on id so
+ * every phone shows the same teams.
+ */
+export function splitTeams<T extends { id: string; rating: number }>(players: T[]): { teamA: T[]; teamB: T[] } {
+  const sorted = [...players].sort((a, b) => b.rating - a.rating || a.id.localeCompare(b.id));
+  const teamA: T[] = [];
+  const teamB: T[] = [];
+  sorted.forEach((player, index) => {
+    (index % 4 === 0 || index % 4 === 3 ? teamA : teamB).push(player);
+  });
+  return { teamA, teamB };
+}
+
+/** Wins and losses for one player out of a session's recorded games. */
+export function playerRecord(
+  playerId: string,
+  games: { teamA: string[]; teamB: string[]; scoreA: number; scoreB: number }[],
+) {
+  let wins = 0;
+  let losses = 0;
+  let pointsFor = 0;
+  let pointsAgainst = 0;
+  for (const g of games) {
+    const onA = g.teamA.includes(playerId);
+    const onB = g.teamB.includes(playerId);
+    if (!onA && !onB) continue;
+    const mine = onA ? g.scoreA : g.scoreB;
+    const theirs = onA ? g.scoreB : g.scoreA;
+    pointsFor += mine;
+    pointsAgainst += theirs;
+    if (mine > theirs) wins++;
+    else losses++;
+  }
+  return { wins, losses, played: wins + losses, pointsFor, pointsAgainst };
+}

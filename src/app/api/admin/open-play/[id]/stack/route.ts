@@ -39,7 +39,7 @@ export const PATCH = route(async (request: Request, ctx: { params: Promise<{ id:
     .object({ playerId: z.string().min(1), groupId: z.string().min(1).nullable() })
     .parse(await readJson(request));
 
-  const player = await movePlayer(input);
+  const player = await movePlayer({ sessionId: id, ...input });
 
   await audit({
     userId: admin.id,

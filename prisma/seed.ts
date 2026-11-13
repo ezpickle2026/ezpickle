@@ -47,6 +47,7 @@ async function main() {
     prisma.playerPairHistory.deleteMany(),
     prisma.waitlist.deleteMany(),
     prisma.openPlayPlayer.deleteMany(),
+    prisma.openPlayGame.deleteMany(),
     prisma.openPlayGroup.deleteMany(),
     prisma.openPlaySession.deleteMany(),
     prisma.booking.deleteMany(),
