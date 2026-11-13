@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Plus, Shuffle } from "lucide-react";
+import { MonitorUp, Plus, Shuffle } from "lucide-react";
 import { api } from "@/lib/client";
 import {
   Badge,
@@ -62,6 +62,36 @@ type SessionDetail = {
 
 const SKILLS = ["BEGINNER", "INTERMEDIATE", "ADVANCED", "OPEN"];
 
+type ScreenInfo = { availLeft: number; availTop: number; availWidth: number; availHeight: number };
+
+/**
+ * Opens the full-screen court board in its own window. On Chrome/Edge it asks
+ * for "window management" permission and places the window on the other
+ * monitor; elsewhere it opens a normal window you drag across.
+ */
+async function openCourtDisplay(sessionId: string) {
+  const url = `/display/open-play/${sessionId}`;
+  const name = `ezp-display-${sessionId}`;
+  let features = "popup,width=1280,height=720";
+
+  try {
+    const w = window as unknown as {
+      getScreenDetails?: () => Promise<{ screens: ScreenInfo[]; currentScreen: ScreenInfo }>;
+    };
+    if (w.getScreenDetails) {
+      const details = await w.getScreenDetails();
+      const other = details.screens.find((screen) => screen !== details.currentScreen);
+      if (other) {
+        features = `popup,left=${other.availLeft},top=${other.availTop},width=${other.availWidth},height=${other.availHeight}`;
+      }
+    }
+  } catch {
+    /* permission denied or unsupported — fall back to a normal window */
+  }
+
+  window.open(url, name, features);
+}
+
 export default function AdminOpenPlayPage() {
   const { data, loading, reload } = useResource<{ sessions: Session[] }>("/api/admin/open-play");
   const [createOpen, setCreateOpen] = useState(false);
@@ -121,9 +151,20 @@ export default function AdminOpenPlayPage() {
                 </Badge>
               </Td>
               <Td align="right">
-                <Button size="sm" variant="ghost" onClick={() => setManageId(session.id)}>
-                  Manage stack
-                </Button>
+                <span className="inline-flex gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => void openCourtDisplay(session.id)}
+                    title="Show courts on a second monitor"
+                  >
+                    <MonitorUp size={14} aria-hidden />
+                    Display
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setManageId(session.id)}>
+                    Manage stack
+                  </Button>
+                </span>
               </Td>
             </Row>
           ))}
@@ -211,6 +252,14 @@ function StackModal({
             >
               <Shuffle size={16} aria-hidden />
               Generate stack
+            </Button>
+            <Button
+              className="self-end"
+              variant="ghost"
+              onClick={() => sessionId && void openCourtDisplay(sessionId)}
+            >
+              <MonitorUp size={16} aria-hidden />
+              Open on 2nd monitor
             </Button>
             <p className="flex-1 text-xs text-white/35">
               The stacker balances group ratings and avoids repeating the same pairings across
