@@ -9,15 +9,16 @@ import { useToast } from "./ui/toast";
 import { Button } from "./ui/button";
 import { Badge, Card, Field, inputClass, Skeleton } from "./ui/primitives";
 import { CapacityBar } from "./open-play-capacity";
+import { OpenPlayStack, type PlayerRecord, type StackGame, type StackGroup } from "./open-play-stack";
 import { peso } from "@/lib/utils";
 
-type Player = { id: string; name: string; avatarUrl: string | null; status: string; rating: number | null };
-type Group = {
+type Player = {
   id: string;
-  label: string;
-  court: string;
-  avgRating: number | null;
-  players: { id: string; name: string; rating: number | null }[];
+  name: string;
+  avatarUrl: string | null;
+  status: string;
+  rating: number | null;
+  groupId: string | null;
 };
 type Detail = {
   session: {
@@ -36,9 +37,20 @@ type Detail = {
   };
   taken: number;
   players: Player[];
-  groups: Group[];
+  round: number;
+  groups: StackGroup[];
+  bench: { id: string; name: string; rating: number | null }[];
+  games: StackGame[];
+  operator: { id: string; name: string } | null;
+  canOperate: boolean;
   waitlistCount: number;
-  me: { id: string; status: string; holdExpiresAt: string | null } | null;
+  me: {
+    id: string;
+    status: string;
+    holdExpiresAt: string | null;
+    groupId: string | null;
+    record: PlayerRecord;
+  } | null;
   myWaitlist: { status: string; position: number; offerExpiresAt: string | null } | null;
 };
 
@@ -276,58 +288,21 @@ export function OpenPlayDetail({ sessionId, signedIn }: { sessionId: string; sig
         </div>
       </Card>
 
-      {data.groups.length > 0 && (
-        <section aria-labelledby="stack-heading">
-          <h2 id="stack-heading" className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-white/40">
-            Open Play stack
-          </h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {data.groups.map((group, groupIndex) => (
-              <motion.div
-                key={group.id}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: groupIndex * 0.12, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <Card>
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-white">{group.court}</h3>
-                    {group.avgRating != null && (
-                      <span className="text-xs text-white/40">avg {group.avgRating.toFixed(2)}</span>
-                    )}
-                  </div>
-                  <ul className="mt-3 space-y-2">
-                    <AnimatePresence initial={false}>
-                      {group.players.map((player, playerIndex) => (
-                        <motion.li
-                          key={player.id}
-                          layout
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: 10 }}
-                          transition={{
-                            duration: 0.32,
-                            delay: groupIndex * 0.12 + playerIndex * 0.06,
-                            ease: [0.22, 1, 0.36, 1],
-                          }}
-                          className="flex items-center justify-between rounded-xl bg-white/[0.04] px-3 py-2 text-sm"
-                        >
-                          <span className="text-white/85">{player.name}</span>
-                          {player.rating != null && (
-                            <span className="text-xs tabular-nums text-white/35">
-                              {player.rating.toFixed(1)}
-                            </span>
-                          )}
-                        </motion.li>
-                      ))}
-                    </AnimatePresence>
-                  </ul>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </section>
-      )}
+      <OpenPlayStack
+        sessionId={sessionId}
+        round={data.round}
+        groups={data.groups}
+        bench={data.bench}
+        games={data.games}
+        operator={data.operator}
+        canOperate={data.canOperate}
+        me={
+          data.me && ["REGISTERED", "CHECKED_IN"].includes(data.me.status)
+            ? { id: data.me.id, groupId: data.me.groupId, record: data.me.record }
+            : null
+        }
+        onChanged={load}
+      />
 
       <section aria-labelledby="roster-heading">
         <h2 id="roster-heading" className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-white/40">

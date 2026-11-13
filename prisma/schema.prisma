@@ -48,6 +48,8 @@ model User {
   inventoryTx       InventoryTransaction[]
   auditLogs         AuditLog[]
   notifications     Notification[]
+  operatedOpenPlays OpenPlaySession[]  @relation("OpenPlayOperator")
+  recordedGames     OpenPlayGame[]     @relation("OpenPlayGameRecorder")
 
   @@index([role, status])
   @@index([email])
@@ -329,11 +331,15 @@ model OpenPlaySession {
   status        OpenPlayStatus @default(OPEN)
   rotationMins  Int            @default(15)
   notes         String?
+  // A member of this session who runs the stacker from their own phone.
+  operatorUserId String?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
+  operator User?            @relation("OpenPlayOperator", fields: [operatorUserId], references: [id], onDelete: SetNull)
   players  OpenPlayPlayer[]
   groups   OpenPlayGroup[]
+  games    OpenPlayGame[]
   waitlist Waitlist[]
 
   @@index([startAt, status])
@@ -383,6 +389,33 @@ model OpenPlayGroup {
   session OpenPlaySession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   court   Court?           @relation(fields: [courtId], references: [id])
   players OpenPlayPlayer[]
+  game    OpenPlayGame?
+
+  @@index([sessionId, roundIndex])
+}
+
+/**
+ * A finished game on one court in one round. Teams are snapshotted as
+ * OpenPlayPlayer ids so the record survives the next re-stack, which empties
+ * the old round's groups.
+ */
+model OpenPlayGame {
+  id           String   @id @default(cuid())
+  sessionId    String
+  groupId      String?  @unique
+  roundIndex   Int
+  courtLabel   String
+  teamA        String[]
+  teamB        String[]
+  scoreA       Int
+  scoreB       Int
+  recordedById String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  session    OpenPlaySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  group      OpenPlayGroup?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  recordedBy User?           @relation("OpenPlayGameRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
 
   @@index([sessionId, roundIndex])
 }

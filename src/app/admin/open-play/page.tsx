@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { MonitorUp, Plus, Shuffle } from "lucide-react";
+import { Crown, MonitorUp, Plus, Shuffle } from "lucide-react";
 import { api } from "@/lib/client";
 import {
   Badge,
@@ -43,16 +43,18 @@ type Session = {
 type SessionDetail = {
   id: string;
   title: string;
+  operatorUserId: string | null;
   players: {
     id: string;
     status: string;
     skillRating: number | null;
     groupId: string | null;
-    user: { fullName: string };
+    user: { id: string; fullName: string };
   }[];
   groups: {
     id: string;
     label: string;
+    roundIndex: number;
     avgRating: number | null;
     court: { name: string } | null;
     players: { id: string; skillRating: number | null; user: { fullName: string } }[];
@@ -209,6 +211,10 @@ function StackModal({
     void load();
   }, [load]);
 
+  // Older rounds' groups are emptied on re-stack; only the latest is on court.
+  const latestRound = Math.max(0, ...(detail?.groups ?? []).map((g) => g.roundIndex));
+  const courts = (detail?.groups ?? []).filter((g) => g.roundIndex === latestRound);
+
   const bench = (detail?.players ?? []).filter(
     (player) => !player.groupId && player.status !== "CANCELLED",
   );
@@ -267,9 +273,49 @@ function StackModal({
             </p>
           </div>
 
+          <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-amber-400/20 bg-amber-400/[0.04] p-4">
+            <label className="text-sm">
+              <span className="mb-1.5 flex items-center gap-1.5 text-[13px] font-medium text-white/70">
+                <Crown size={13} className="text-amber-300" aria-hidden />
+                Stacking operator
+              </span>
+              <select
+                className={`${selectClass} w-64`}
+                value={detail.operatorUserId ?? ""}
+                disabled={busy}
+                onChange={(e) =>
+                  run(
+                    () =>
+                      api(`/api/admin/open-play/${sessionId}/operator`, {
+                        method: "PUT",
+                        body: { userId: e.target.value || null },
+                      }),
+                    {
+                      success: e.target.value ? "Operator assigned." : "Operator removed.",
+                      onDone: load,
+                    },
+                  )
+                }
+              >
+                <option value="">No operator (admin only)</option>
+                {detail.players
+                  .filter((p) => p.status === "REGISTERED" || p.status === "CHECKED_IN")
+                  .map((p) => (
+                    <option key={p.user.id} value={p.user.id}>
+                      {p.user.fullName}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <p className="flex-1 text-xs text-white/40">
+              The operator runs rounds, moves players and records scores from the session page on
+              their own phone. Every player in this session sees the courts and their own record live.
+            </p>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <AnimatePresence initial={false}>
-              {detail.groups.map((group, groupIndex) => (
+              {courts.map((group, groupIndex) => (
                 <motion.div
                   key={group.id}
                   layout
@@ -316,7 +362,7 @@ function StackModal({
                             }
                             aria-label={`Move ${player.user.fullName}`}
                           >
-                            {detail.groups.map((g) => (
+                            {courts.map((g) => (
                               <option key={g.id} value={g.id}>
                                 {g.court?.name ?? g.label}
                               </option>
