@@ -337,15 +337,19 @@ function StackModal({
                       <motion.li
                         key={player.id}
                         layout
-                        className="flex items-center justify-between rounded-lg bg-white/[0.05] px-2.5 py-1.5 text-sm"
+                        className="rounded-lg bg-white/[0.05] px-2.5 py-2 text-sm"
                       >
-                        <span className="truncate text-white/85">{player.user.fullName}</span>
-                        <span className="flex items-center gap-2">
-                          <span className="text-xs tabular-nums text-white/35">
+                        <span className="flex items-baseline justify-between gap-2">
+                          <span className="min-w-0 break-words text-white/85">
+                            {player.user.fullName}
+                          </span>
+                          <span className="shrink-0 text-xs tabular-nums text-white/35">
                             {player.skillRating?.toFixed(1) ?? "—"}
                           </span>
+                        </span>
+                        <span className="mt-1.5 block">
                           <select
-                            className="rounded-md bg-ink px-1.5 py-1 text-xs text-white/70"
+                            className="w-full rounded-md bg-ink px-1.5 py-1 text-xs text-white/70"
                             value={group.id}
                             onChange={(e) =>
                               run(

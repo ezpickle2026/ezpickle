@@ -300,9 +300,11 @@ export function OpenPlayStack(props: Props) {
                       className="flex items-center gap-3 rounded-xl bg-white/[0.04] px-3 py-2 text-sm"
                     >
                       <Badge tone={won ? "green" : "red"}>{won ? "W" : "L"}</Badge>
-                      <span className="min-w-0 flex-1 truncate text-white/70">
-                        R{g.roundIndex} · {g.court}
-                        {partner.length > 0 && <> · with {names(partner)}</>} · vs{" "}
+                      <span className="min-w-0 flex-1 text-white/70">
+                        <span className="block text-xs text-white/40">
+                          Round {g.roundIndex} · {g.court}
+                        </span>
+                        {partner.length > 0 && <>with {names(partner)} · </>}vs{" "}
                         {names(onA ? g.teamB : g.teamA)}
                       </span>
                       <span className="font-semibold tabular-nums text-white">
@@ -328,54 +330,54 @@ export function OpenPlayStack(props: Props) {
           <Card>
             <ul className="space-y-1.5">
               {[...games].reverse().map((g) => (
-                <li
-                  key={g.id}
-                  className="flex items-center gap-3 rounded-xl bg-white/[0.03] px-3 py-2 text-sm"
-                >
-                  <span className="w-20 shrink-0 text-xs text-white/35">
-                    R{g.roundIndex} · {g.court}
-                  </span>
-                  <span
-                    className={cn(
-                      "min-w-0 flex-1 truncate text-right",
-                      g.scoreA > g.scoreB ? "font-semibold text-white" : "text-white/55",
+                <li key={g.id} className="rounded-xl bg-white/[0.03] px-3 py-2.5 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-white/40">
+                      Round {g.roundIndex} · {g.court}
+                    </span>
+                    {canOperate && (
+                      <button
+                        type="button"
+                        className="shrink-0 rounded-full p-1 text-white/30 hover:bg-white/10 hover:text-red-300"
+                        aria-label="Delete this result"
+                        disabled={busy !== null}
+                        onClick={() => {
+                          if (!confirm("Delete this result?")) return;
+                          void act(
+                            `del-${g.id}`,
+                            () =>
+                              api(`/api/open-play/${sessionId}/games`, {
+                                method: "DELETE",
+                                body: { gameId: g.id },
+                              }),
+                            "Result deleted.",
+                          );
+                        }}
+                      >
+                        <X size={14} aria-hidden />
+                      </button>
                     )}
-                  >
-                    {names(g.teamA)}
-                  </span>
-                  <span className="shrink-0 tabular-nums text-white">
-                    {g.scoreA}–{g.scoreB}
-                  </span>
-                  <span
-                    className={cn(
-                      "min-w-0 flex-1 truncate",
-                      g.scoreB > g.scoreA ? "font-semibold text-white" : "text-white/55",
-                    )}
-                  >
-                    {names(g.teamB)}
-                  </span>
-                  {canOperate && (
-                    <button
-                      type="button"
-                      className="shrink-0 rounded-full p-1 text-white/30 hover:bg-white/10 hover:text-red-300"
-                      aria-label="Delete this result"
-                      disabled={busy !== null}
-                      onClick={() => {
-                        if (!confirm("Delete this result?")) return;
-                        void act(
-                          `del-${g.id}`,
-                          () =>
-                            api(`/api/open-play/${sessionId}/games`, {
-                              method: "DELETE",
-                              body: { gameId: g.id },
-                            }),
-                          "Result deleted.",
-                        );
-                      }}
+                  </div>
+                  {(
+                    [
+                      [g.teamA, g.scoreA, g.scoreA > g.scoreB],
+                      [g.teamB, g.scoreB, g.scoreB > g.scoreA],
+                    ] as const
+                  ).map(([team, pts, won], i) => (
+                    <div
+                      key={i}
+                      className={cn(
+                        "mt-1 flex items-baseline justify-between gap-3",
+                        won ? "font-semibold text-white" : "text-white/55",
+                      )}
                     >
-                      <X size={14} aria-hidden />
-                    </button>
-                  )}
+                      <span className="min-w-0 break-words">
+                        {won && <Trophy size={12} className="mr-1.5 inline text-pickle-400" aria-hidden />}
+                        {names(team)}
+                      </span>
+                      <span className="shrink-0 tabular-nums">{pts}</span>
+                    </div>
+                  ))}
                 </li>
               ))}
             </ul>
