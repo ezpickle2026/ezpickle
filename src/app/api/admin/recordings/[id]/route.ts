@@ -37,13 +37,15 @@ export const PATCH = route(async (request: Request, ctx: Ctx) => {
   return ok({ updated: true });
 });
 
-/** Removes the link from EzPickle. The file on the recorder is not touched. */
+/** Removes the recording. Files on an external recorder are not touched. */
 export const DELETE = route(async (request: Request, ctx: Ctx) => {
   await assertCsrf(request);
   const { id } = await ctx.params;
   const user = await requirePermission("cam:write");
 
   const recording = await prisma.courtRecording.delete({ where: { id } });
+  // Phone-camera clips live in our own database; remove the video bytes too.
+  if (recording.fileId) await prisma.uploadedFile.deleteMany({ where: { id: recording.fileId } });
   await audit({
     userId: user.id,
     actorEmail: user.email,

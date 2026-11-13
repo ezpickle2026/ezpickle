@@ -340,6 +340,8 @@ Replays are listed for 30 days (`REPLAY_DAYS` in `src/lib/picklecam.ts`). The li
 
 EzPickle stores links, not video files: the video stays on the recorder or its storage (S3, R2, Mux, Cloudflare Stream, an NVR behind HTTPS). Use HTTPS, and for private buckets use signed URLs valid for the 30-day window. Most IP cameras stream RTSP, which browsers can't play; put a small relay such as MediaMTX or go2rtc next to the cameras to turn RTSP into HLS.
 
+**Testing with a phone.** On a camera row, **Use phone** opens a page (meant to be opened on the phone itself, signed in as an admin) that turns the phone into that court's camera: it sends a live picture about once a second (served to viewers as MJPEG) and uploads a clip every 1, 5 or 10 minutes. Phone clips are stored in Postgres and streamed with Range support, so delete old ones from Recordings. The live picture is kept in memory, which assumes a single app instance. The site must be on HTTPS for the phone browser to allow the camera.
+
 The player shows the business logo and name (from **Admin → Settings**) on a rail down the side of the video, also in fullscreen.
 
 ### Real-time
