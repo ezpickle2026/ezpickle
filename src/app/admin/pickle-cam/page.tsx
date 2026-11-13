@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Copy, KeyRound, Plus } from "lucide-react";
 import { api } from "@/lib/client";
 import { useToast } from "@/components/ui/toast";
@@ -202,6 +203,11 @@ export default function AdminPickleCamPage() {
                         Watch
                       </Button>
                     )}
+                    <Link href={`/admin/pickle-cam/phone/${cam.id}`}>
+                      <Button size="sm" variant="ghost">
+                        Use phone
+                      </Button>
+                    </Link>
                     <Button
                       size="sm"
                       variant="ghost"
@@ -571,6 +577,10 @@ function ConnectionGuide() {
     <section className="mt-10">
       <h2 className="mb-3 text-lg font-semibold text-white">Connecting a camera</h2>
       <Card className="space-y-4 text-sm text-white/65">
+        <p className="rounded-xl bg-pickle-500/10 p-3 text-pickle-200">
+          <b>Testing with a phone?</b> Connect a camera here, then open this page on the phone, press{" "}
+          <b>Use phone</b> on that camera and <b>Start camera</b>. No key or extra app needed.
+        </p>
         <p>
           Each camera sends events to <code className="text-pickle-300">{endpoint}</code> with its key. Any camera, NVR or a
           small script beside it can do this. The video itself stays on your recorder or storage; EzPickle keeps the link and

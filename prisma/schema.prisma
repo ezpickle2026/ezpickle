@@ -237,6 +237,7 @@ model CourtRecording {
   bookingId    String? // best-matching booking, filled in automatically
   published    Boolean         @default(true)
   error        String?
+  fileId       String? // video uploaded from the phone camera page (UploadedFile)
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 

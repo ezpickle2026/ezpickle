@@ -16,7 +16,7 @@ export class ApiError extends Error {
   }
 }
 
-function csrfToken(): string {
+export function csrfToken(): string {
   const match = document.cookie.match(/(?:^|;\s*)ezp_csrf=([^;]+)/);
   return match ? decodeURIComponent(match[1]) : "";
 }
