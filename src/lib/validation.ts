@@ -241,3 +241,71 @@ export const settingsSchema = z.object({
 });
 
 export const checkinSchema = z.object({ token: z.string().min(5).max(200) });
+
+// ---------------------------------------------------------------- pickle cam
+
+/** Only http(s) links: a stream URL ends up in <video>/<iframe> src. */
+const mediaUrl = z
+  .string()
+  .trim()
+  .url("Enter a full link starting with https://")
+  .max(2000)
+  .refine((u) => /^https?:\/\//i.test(u), "Only http:// or https:// links are allowed");
+
+const optionalMediaUrl = z.preprocess(
+  (v) => (typeof v === "string" && v.trim() === "" ? null : v),
+  mediaUrl.nullable().optional(),
+);
+
+export const camStreamType = z.enum(["HLS", "MP4", "MJPEG", "EMBED"]);
+
+export const cameraSchema = z.object({
+  courtId: cuid,
+  name: z.string().trim().min(1, "Give the camera a name").max(60),
+  liveUrl: optionalMediaUrl,
+  liveType: camStreamType.default("HLS"),
+  active: z.boolean().default(true),
+});
+
+export const recordingSchema = z
+  .object({
+    courtId: cuid,
+    title: z.string().trim().max(120).nullable().optional(),
+    startAt: z.coerce.date(),
+    endAt: z.coerce.date(),
+    videoUrl: mediaUrl,
+    videoType: camStreamType.default("MP4"),
+    thumbnailUrl: optionalMediaUrl,
+    published: z.boolean().default(true),
+  })
+  .refine((d) => d.endAt > d.startAt, { message: "End must be after start", path: ["endAt"] });
+
+/** Events a camera, NVR or recording agent sends to /api/cam/ingest. */
+export const camIngestSchema = z.discriminatedUnion("event", [
+  z.object({
+    event: z.literal("heartbeat"),
+    liveUrl: optionalMediaUrl,
+    liveType: camStreamType.optional(),
+  }),
+  z.object({
+    event: z.literal("recording.started"),
+    externalId: z.string().trim().min(1).max(200),
+    startAt: z.coerce.date().optional(),
+  }),
+  z.object({
+    event: z.literal("recording.completed"),
+    externalId: z.string().trim().min(1).max(200),
+    startAt: z.coerce.date(),
+    endAt: z.coerce.date(),
+    videoUrl: mediaUrl,
+    videoType: camStreamType.default("MP4"),
+    thumbnailUrl: optionalMediaUrl,
+    sizeBytes: z.number().int().min(0).max(2_000_000_000).optional(),
+    title: z.string().trim().max(120).optional(),
+  }),
+  z.object({
+    event: z.literal("recording.failed"),
+    externalId: z.string().trim().min(1).max(200),
+    error: z.string().trim().max(500).optional(),
+  }),
+]);

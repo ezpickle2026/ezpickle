@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { CreditCard, QrCode } from "lucide-react";
+import { CreditCard, QrCode, Video } from "lucide-react";
 import { api, ApiError } from "@/lib/client";
 import { useToast } from "./ui/toast";
 import { Button } from "./ui/button";
@@ -191,13 +191,21 @@ export function CustomerDashboard({
 
   return (
     <div>
-      <header className="mb-7">
-        <p className="text-[13px] font-semibold uppercase tracking-[0.18em] text-pickle-400">
-          Dashboard
-        </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-white">
-          Hi, {name.split(" ")[0]}
-        </h1>
+      <header className="mb-7 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-[13px] font-semibold uppercase tracking-[0.18em] text-pickle-400">
+            Dashboard
+          </p>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-white">
+            Hi, {name.split(" ")[0]}
+          </h1>
+        </div>
+        <Link href="/pickle-cam">
+          <Button variant="secondary" size="sm">
+            <Video size={15} aria-hidden />
+            My game videos
+          </Button>
+        </Link>
       </header>
 
       <div role="tablist" aria-label="Dashboard sections" className="mb-6 flex flex-wrap gap-1.5">

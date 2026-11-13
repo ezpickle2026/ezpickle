@@ -38,6 +38,7 @@ Built with Next.js 15 (App Router), React 19, TypeScript, Tailwind, Prisma and P
 - Booking confirmation with a signed QR code
 - Customer dashboard: upcoming and past bookings, payment history, profile, password
 - Open Play: browse sessions, join as an individual, waitlist when full, see your stack
+- Pickle Cam: replays of your own games, and the live feed of your court while your slot is running
 
 **Staff side**
 
@@ -47,6 +48,7 @@ Built with Next.js 15 (App Router), React 19, TypeScript, Tailwind, Prisma and P
 - QR check-in with a camera or a handheld scanner
 - Courts, pricing rules and maintenance blocks
 - Open Play sessions with the auto-stacker and manual overrides
+- Pickle Cam: connect court cameras, see which are online, manage recordings
 - Customers, inventory with a movement ledger, counter sales
 - Sales, utilization and inventory reports, all exporting to CSV
 - Users and roles, media manager, promo codes, business settings, audit log
@@ -313,6 +315,32 @@ Integer centavos everywhere — database, API, PayMongo, CSV exports. `peso()` f
 ### Open Play stacking
 
 `stackPlayers()` is a pure function with no I/O, which is what makes it testable. It seeds groups by skill band, then hill-climbs to minimise intra-court rating spread while penalising pairings recorded in `PlayerPairHistory`. Capacity is never exceeded; leftovers go to a clearly labelled bench rather than being silently dropped. Staff can override any placement by hand afterwards.
+
+### Pickle Cam (court cameras and game videos)
+
+Each court can have one or more cameras (**Admin → Pickle Cam → Connect camera**). Connecting a camera gives a one-time key (`ezcam_...`); only its SHA-256 is stored, and **New key** revokes the old one.
+
+**Who can watch what.** A player sees a recording only if it was filmed on a court they played on, during the time they played there:
+
+- a booking of theirs on that court (`CONFIRMED`, `CHECKED_IN` or `COMPLETED`) that overlaps the clip, or
+- an Open Play session they joined (`REGISTERED` or `CHECKED_IN`) whose stack put players on that court, overlapping the clip.
+
+Replays are listed for 30 days (`REPLAY_DAYS` in `src/lib/picklecam.ts`). The live feed of a court is shown to a player only while their own slot on that court is running. Staff (`cam:read`) see everything; admins (`cam:write`) manage cameras and recordings. Anything else gets a 404, so recording ids can't be probed.
+
+**Connecting the hardware.** The camera, NVR, or a small script beside it, posts JSON to `POST /api/cam/ingest` with `Authorization: Bearer ezcam_...` (or `x-camera-key`):
+
+| event | fields |
+| --- | --- |
+| `heartbeat` | optional `liveUrl`, `liveType`; send every minute, a camera silent for 3 minutes shows offline |
+| `recording.started` | `externalId`, optional `startAt` |
+| `recording.completed` | `externalId`, `startAt`, `endAt`, `videoUrl`, optional `videoType`, `thumbnailUrl`, `sizeBytes`, `title` |
+| `recording.failed` | `externalId`, optional `error` |
+
+`liveType` / `videoType` is one of `HLS` (`.m3u8`), `MP4`, `MJPEG` or `EMBED` (a vendor player page in an iframe). Re-sending an event with the same `externalId` updates the clip. Finished clips are linked to the best-matching booking automatically. Recordings can also be added by link from the admin page.
+
+EzPickle stores links, not video files: the video stays on the recorder or its storage (S3, R2, Mux, Cloudflare Stream, an NVR behind HTTPS). Use HTTPS, and for private buckets use signed URLs valid for the 30-day window. Most IP cameras stream RTSP, which browsers can't play; put a small relay such as MediaMTX or go2rtc next to the cameras to turn RTSP into HLS.
+
+The player shows the business logo and name (from **Admin → Settings**) on a rail down the side of the video, also in fullscreen.
 
 ### Real-time
 

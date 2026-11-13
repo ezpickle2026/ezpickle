@@ -108,6 +108,8 @@ model Court {
   bookings     Booking[]
   pricingRules PricingRule[]
   openPlayGroups OpenPlayGroup[]
+  cameras      CourtCamera[]
+  recordings   CourtRecording[]
 
   @@index([active, bookable])
 }
@@ -174,6 +176,79 @@ model CourtBlock {
   @@index([courtId, startAt, endAt])
 }
 
+// ---------------------------------------------------------------- pickle cam
+
+/// How a stream or recording URL is played back in the browser.
+enum CamStreamType {
+  HLS // .m3u8 playlist (most NVRs, Mux, Cloudflare Stream, MediaMTX, etc.)
+  MP4 // a plain video file
+  MJPEG // motion-JPEG over HTTP, common on IP cameras
+  EMBED // a vendor player page shown in an iframe
+}
+
+/**
+ * A camera mounted on a court. The camera (or the recorder / NVR / small
+ * agent beside it) talks to /api/cam/ingest with its own key; only the
+ * SHA-256 of that key is stored here.
+ */
+model CourtCamera {
+  id             String        @id @default(cuid())
+  courtId        String
+  name           String
+  liveUrl        String?
+  liveType       CamStreamType @default(HLS)
+  ingestKeyHash  String        @unique
+  ingestKeyHint  String // last 4 characters, so staff can tell keys apart
+  active         Boolean       @default(true)
+  lastSeenAt     DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  court      Court            @relation(fields: [courtId], references: [id], onDelete: Cascade)
+  recordings CourtRecording[]
+
+  @@index([courtId])
+}
+
+enum RecordingStatus {
+  RECORDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+/**
+ * One recorded clip of a court. Players see it when it overlaps a game they
+ * played on that same court (a booking, or an Open Play session that used it).
+ */
+model CourtRecording {
+  id           String          @id @default(cuid())
+  courtId      String
+  cameraId     String?
+  externalId   String? // the recorder's own id for this clip
+  title        String?
+  startAt      DateTime
+  endAt        DateTime?
+  status       RecordingStatus @default(READY)
+  videoUrl     String?
+  videoType    CamStreamType   @default(MP4)
+  thumbnailUrl String?
+  sizeBytes    Int?
+  bookingId    String? // best-matching booking, filled in automatically
+  published    Boolean         @default(true)
+  error        String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  court   Court        @relation(fields: [courtId], references: [id], onDelete: Cascade)
+  camera  CourtCamera? @relation(fields: [cameraId], references: [id], onDelete: SetNull)
+  booking Booking?     @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@unique([cameraId, externalId])
+  @@index([courtId, startAt])
+  @@index([bookingId])
+}
+
 // ---------------------------------------------------------------- bookings
 
 enum BookingStatus {
@@ -226,6 +301,7 @@ model Booking {
   promoCode   PromoCode? @relation(fields: [promoCodeId], references: [id])
   payments    Payment[]
   sale        Sale?
+  recordings  CourtRecording[]
 
   @@index([courtId, startAt, endAt])
   @@index([customerId, startAt])
