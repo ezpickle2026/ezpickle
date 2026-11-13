@@ -130,6 +130,20 @@ Every email is also saved in the `Notification` table with status `SENT`, `FAILE
 
 ---
 
+### Sign in with Google, Facebook and Apple
+
+The login and sign-up pages show **Continue with Google / Facebook / Apple** buttons. One tap creates the account (name, email and photo come from the provider) or signs the person in. If someone already has an EzPickle account with the same email, the social login is linked to it. Each button only appears once its variables are set, so you can turn them on one at a time.
+
+In every provider, the redirect / callback URL is `APP_URL` + `/api/auth/oauth/<provider>/callback`, e.g. `https://your-domain.com/api/auth/oauth/google/callback`.
+
+| Variable | Where to get it |
+| --- | --- |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | <https://console.cloud.google.com/apis/credentials> → Create credentials → OAuth client ID → **Web application**. Add the callback URL under *Authorized redirect URIs*. Set the OAuth consent screen to *In production*. |
+| `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` | <https://developers.facebook.com/apps> → Create app → *Authenticate and request data from users with Facebook Login*. Under Facebook Login → Settings add the callback URL to *Valid OAuth Redirect URIs*. In App settings → Basic copy the App ID and App Secret, add a privacy policy URL, then switch the app to **Live**. |
+| `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` | Needs a paid Apple Developer account. At <https://developer.apple.com/account/resources>: create an **App ID** with *Sign in with Apple*, then a **Services ID** (this is `APPLE_CLIENT_ID`, e.g. `com.ezpickle.web`), enable Sign in with Apple on it with your domain and the callback URL. Create a **Key** with Sign in with Apple and download the `.p8` file: its ID is `APPLE_KEY_ID`, its contents are `APPLE_PRIVATE_KEY` (paste the whole file; `\n` for newlines also works). `APPLE_TEAM_ID` is shown at the top right of the developer site. Apple requires HTTPS, so test it on the live site, not localhost. |
+
+After adding variables in Railway, redeploy. The new `OAuthAccount` table is created by `prisma db push` in the release step.
+
 ## Database setup
 
 ```bash

@@ -38,6 +38,7 @@ model User {
   updatedAt    DateTime   @updatedAt
 
   sessions          Session[]
+  oauthAccounts     OAuthAccount[]
   bookings          Booking[]          @relation("BookingCustomer")
   createdBookings   Booking[]          @relation("BookingCreatedBy")
   checkedInBookings Booking[]          @relation("BookingCheckedInBy")
@@ -53,6 +54,21 @@ model User {
 
   @@index([role, status])
   @@index([email])
+}
+
+/// A sign-in method from Google, Facebook or Apple linked to a user.
+model OAuthAccount {
+  id             String   @id @default(cuid())
+  userId         String
+  provider       String   // "google" | "facebook" | "apple"
+  providerUserId String
+  email          String?
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
 }
 
 model Session {

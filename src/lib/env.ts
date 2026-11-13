@@ -31,6 +31,20 @@ const schema = z.object({
     .transform((v) => v.replace(/\s+/g, "")),
   RESEND_API_KEY: z.string().default(""),
   MAIL_FROM: z.string().default("EzPickle <ezpickle2026@gmail.com>"),
+  // Social sign-in. A button only shows when its provider is fully configured.
+  GOOGLE_CLIENT_ID: z.string().trim().default(""),
+  GOOGLE_CLIENT_SECRET: z.string().trim().default(""),
+  FACEBOOK_APP_ID: z.string().trim().default(""),
+  FACEBOOK_APP_SECRET: z.string().trim().default(""),
+  // Apple: the Services ID (e.g. com.ezpickle.web), Team ID, Key ID and the
+  // contents of the .p8 key. Newlines in the key may be pasted as "\n".
+  APPLE_CLIENT_ID: z.string().trim().default(""),
+  APPLE_TEAM_ID: z.string().trim().default(""),
+  APPLE_KEY_ID: z.string().trim().default(""),
+  APPLE_PRIVATE_KEY: z
+    .string()
+    .default("")
+    .transform((v) => v.trim().replace(/^["']|["']$/g, "").replace(/\\n/g, "\n")),
   SEED_ENABLED: z.string().default("false"),
   SEED_PASSWORD: z.string().default(""),
 });
